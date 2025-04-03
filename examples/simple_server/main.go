@@ -168,7 +168,7 @@ func handleCallbackGoogle(w http.ResponseWriter, r *http.Request) {
 
 	logger.Info("Received Google callback", zap.String("state", state), zap.String("code", code))
 
-	user, err := oauthHandler.GoogleLoginWithCodeFromFrontend(ctx, code)
+	user, err := oauthHandler.LoginWithCode(ctx, auth.GoogleOAuthProvider, code)
 	if err != nil {
 		logger.Error("Google login failed", zap.Error(err))
 		http.Error(w, "Login failed processing code", http.StatusInternalServerError)
@@ -205,7 +205,7 @@ func handleCallbackGithub(w http.ResponseWriter, r *http.Request) {
 
 	logger.Info("Received GitHub callback", zap.String("state", state), zap.String("code", code))
 
-	user, err := oauthHandler.GitHubLoginWithCodeFromFrontend(ctx, code)
+	user, err := oauthHandler.LoginWithCode(ctx, auth.GitHubOAuthProvider, code)
 	if err != nil {
 		logger.Error("GitHub login failed", zap.Error(err))
 		http.Error(w, "Login failed processing code", http.StatusInternalServerError)

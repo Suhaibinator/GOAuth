@@ -173,13 +173,13 @@ func extractLinkedInProfilePictureURL(pic *LinkedInPicture) string {
 	return "" // Return empty if no URL found in identifiers or other checks.
 }
 
-// LinkedInLoginWithCodeFromFrontend handles the final step of the LinkedIn OAuth flow.
+// linkedInLoginWithCode handles the final step of the LinkedIn OAuth flow.
 // It exchanges the authorization code for an access token, fetches the user's profile
 // information and email address from the LinkedIn API, and maps the data to the
 // standardized User struct.
 // Requires appropriate scopes like 'profile', 'email', 'openid' (or older 'r_liteprofile', 'r_emailaddress').
 // Returns ErrFailedToExchangeCode or ErrFailedToGetUserInfo on failure.
-func (o *OAuthHandler) LinkedInLoginWithCodeFromFrontend(ctx context.Context, code string) (*User, error) {
+func (o *OAuthHandler) linkedInLoginWithCode(ctx context.Context, code string) (*User, error) {
 	logger := withTraceID(ctx, o.logger, o.config.TraceIdKey).Named("linkedin_login")
 
 	if o.linkedInOAuthConfig == nil {

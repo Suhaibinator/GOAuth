@@ -74,12 +74,12 @@ func fetchDiscordUserInfo(ctx context.Context, client *http.Client) (*DiscordUse
 	return &userInfo, nil
 }
 
-// DiscordLoginWithCodeFromFrontend handles the final step of the Discord OAuth flow.
+// discordLoginWithCode handles the final step of the Discord OAuth flow.
 // It exchanges the authorization code for an access token, fetches the user's profile
 // information from the Discord API, and maps it to the standardized User struct.
 // Requires 'identify' and optionally 'email' scopes.
 // Returns ErrFailedToExchangeCode or ErrFailedToGetUserInfo on failure.
-func (o *OAuthHandler) DiscordLoginWithCodeFromFrontend(ctx context.Context, code string) (*User, error) {
+func (o *OAuthHandler) discordLoginWithCode(ctx context.Context, code string) (*User, error) {
 	logger := withTraceID(ctx, o.logger, o.config.TraceIdKey).Named("discord_login")
 
 	if o.discordOAuthConfig == nil {

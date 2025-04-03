@@ -72,12 +72,12 @@ func fetchFacebookUserInfo(ctx context.Context, client *http.Client) (*FacebookU
 	return &userInfo, nil
 }
 
-// FacebookLoginWithCodeFromFrontend handles the final step of the Facebook OAuth flow.
+// facebookLoginWithCode handles the final step of the Facebook OAuth flow.
 // It exchanges the authorization code for an access token, fetches the user's profile
 // information from the Facebook Graph API, and maps the data to the standardized User struct.
 // Requires 'public_profile' and 'email' scopes for full user details.
 // Returns ErrFailedToExchangeCode or ErrFailedToGetUserInfo on failure.
-func (o *OAuthHandler) FacebookLoginWithCodeFromFrontend(ctx context.Context, code string) (*User, error) {
+func (o *OAuthHandler) facebookLoginWithCode(ctx context.Context, code string) (*User, error) {
 	logger := withTraceID(ctx, o.logger, o.config.TraceIdKey).Named("facebook_login")
 
 	if o.facebookOAuthConfig == nil {

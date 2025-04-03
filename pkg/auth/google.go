@@ -28,12 +28,12 @@ type GoogleUserInfo struct {
 	Locale        string `json:"locale"`         // The user's locale (e.g., "en").
 }
 
-// GoogleLoginWithCodeFromFrontend handles the final step of the Google OAuth flow.
+// googleLoginWithCode handles the final step of the Google OAuth flow.
 // It exchanges the authorization code received from the frontend for an access token,
 // fetches the user's profile information from Google's userinfo endpoint,
 // and maps it to the standardized User struct.
 // Returns ErrFailedToExchangeCode or ErrFailedToGetUserInfo on failure.
-func (o *OAuthHandler) GoogleLoginWithCodeFromFrontend(ctx context.Context, code string) (*User, error) {
+func (o *OAuthHandler) googleLoginWithCode(ctx context.Context, code string) (*User, error) {
 	logger := withTraceID(ctx, o.logger, o.config.TraceIdKey).Named("google_login")
 
 	if o.googleOAuthConfig == nil {

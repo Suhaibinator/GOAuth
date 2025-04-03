@@ -181,6 +181,40 @@ func (h *OAuthHandler) RegisterOAuthProviders(ctx context.Context) {
 
 }
 
+type OAuthProvider int
+
+const (
+	GoogleOAuthProvider OAuthProvider = iota
+	FacebookOAuthProvider
+	AppleOAuthProvider
+	GitHubOAuthProvider
+	LinkedInOAuthProvider
+	DiscordOAuthProvider
+)
+
+func (h *OAuthHandler) LoginWithCode(ctx context.Context, provider OAuthProvider, code string) (*User, error) {
+	logger := withTraceID(ctx, h.logger, h.config.TraceIdKey)
+
+	switch provider {
+	case GoogleOAuthProvider:
+		return h.googleLoginWithCode(ctx, code)
+	case FacebookOAuthProvider:
+		return h.facebookLoginWithCode(ctx, code)
+	case AppleOAuthProvider:
+		withTraceID(ctx, logger, h.config.TraceIdKey).Warn("Apple OAuth provider is not fully implemented")
+		return h.appleLoginWithCode(ctx, code)
+	case GitHubOAuthProvider:
+		return h.gitHubLoginWithCode(ctx, code)
+	case LinkedInOAuthProvider:
+		return h.linkedInLoginWithCode(ctx, code)
+	case DiscordOAuthProvider:
+		return h.discordLoginWithCode(ctx, code)
+	default:
+		withTraceID(ctx, logger, h.config.TraceIdKey).Error("Invalid OAuth provider")
+		return nil, errors.New("invalid OAuth provider")
+	}
+}
+
 // Stop performs any cleanup needed for the OAuthHandler
 func (h *OAuthHandler) Stop() {
 	// No explicit resources like database connections to close here typically.

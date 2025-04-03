@@ -171,11 +171,11 @@ func (a *AppleOauthHandler) GetAuthURL(state string) string {
 	return u.String()
 }
 
-// AppleLoginWithCodeFromFrontend handles the simplified Apple login flow using an authorization code.
+// appleLoginWithCode handles the simplified Apple login flow using an authorization code.
 // WARNING: This function relies on the insecure Exchange and GetUserInfo methods of the
 // current AppleOauthHandler. It does not perform proper client secret generation or ID token validation.
 // It's suitable only for basic demonstration and MUST be heavily modified for production.
-func (o *OAuthHandler) AppleLoginWithCodeFromFrontend(ctx context.Context, code string) (*User, error) {
+func (o *OAuthHandler) appleLoginWithCode(ctx context.Context, code string) (*User, error) {
 	logger := withTraceID(ctx, o.logger, o.config.TraceIdKey).Named("apple_login")
 	if o.appleOauthHandler == nil {
 		logger.Error("Apple OAuth handler not initialized")

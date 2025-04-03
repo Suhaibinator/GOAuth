@@ -116,13 +116,13 @@ func selectPrimaryGitHubEmail(emails []GitHubUserEmail) string {
 	return firstEmail // Return the first email if no better option is found.
 }
 
-// GitHubLoginWithCodeFromFrontend handles the final step of the GitHub OAuth flow.
+// gitHubLoginWithCode handles the final step of the GitHub OAuth flow.
 // It exchanges the authorization code for an access token, fetches the user's profile
 // information and email addresses from the GitHub API, and maps the data to the
 // standardized User struct.
 // Requires 'read:user' and 'user:email' scopes.
 // Returns ErrFailedToExchangeCode or ErrFailedToGetUserInfo on failure.
-func (o *OAuthHandler) GitHubLoginWithCodeFromFrontend(ctx context.Context, code string) (*User, error) {
+func (o *OAuthHandler) gitHubLoginWithCode(ctx context.Context, code string) (*User, error) {
 	logger := withTraceID(ctx, o.logger, o.config.TraceIdKey).Named("github_login")
 
 	if o.githubOAuthConfig == nil {
