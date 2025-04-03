@@ -7,7 +7,6 @@ import (
 	"github.com/Suhaibinator/SRouter/pkg/middleware"
 	"go.uber.org/zap"
 	"golang.org/x/oauth2"
-	// Added for Facebook endpoint
 )
 
 // User represents a standardized user profile obtained after successful OAuth authentication.
