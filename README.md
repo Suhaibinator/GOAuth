@@ -1,6 +1,7 @@
 # GOAuth
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/Suhaibinator/GOAuth.svg)](https://pkg.go.dev/github.com/Suhaibinator/GOAuth)
+[![Go](https://github.com/Suhaibinator/GOAuth/actions/workflows/go.yml/badge.svg)](https://github.com/Suhaibinator/GOAuth/actions/workflows/go.yml)
 
 Go package providing handlers for common OAuth 2.0 Providers, simplifying the process of adding social logins to your Go applications.
 
