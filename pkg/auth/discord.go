@@ -80,7 +80,7 @@ func fetchDiscordUserInfo(ctx context.Context, client *http.Client) (*DiscordUse
 // Requires 'identify' and optionally 'email' scopes.
 // Returns ErrFailedToExchangeCode or ErrFailedToGetUserInfo on failure.
 func (o *OAuthHandler) discordLoginWithCode(ctx context.Context, code string) (*User, error) {
-	logger := withTraceID(ctx, o.logger, o.config.TraceIdKey).Named("discord_login")
+	logger := o.logEnricher(ctx, o.logger).Named("discord_login")
 
 	if o.discordOAuthConfig == nil {
 		logger.Error("Discord OAuth config not initialized")
@@ -131,7 +131,7 @@ func (o *OAuthHandler) discordLoginWithCode(ctx context.Context, code string) (*
 // GetDiscordAuthURL generates the URL to redirect the user to for Discord authentication.
 // It includes the client ID, redirect URL, requested scopes ('identify', 'email'), and state.
 func (o *OAuthHandler) GetDiscordAuthURL(ctx context.Context, state string) string {
-	logger := withTraceID(ctx, o.logger, o.config.TraceIdKey).Named("discord_auth_url")
+	logger := o.logEnricher(ctx, o.logger).Named("discord_auth_url")
 	if o.discordOAuthConfig == nil {
 		logger.Error("Discord OAuth config not initialized for GetDiscordAuthURL")
 		return ""
@@ -145,7 +145,7 @@ func (o *OAuthHandler) GetDiscordAuthURL(ctx context.Context, state string) stri
 // using the credentials provided in the main OAuthConfig.
 // It manually defines the Discord API endpoints and sets the 'identify' and 'email' scopes.
 func (o *OAuthHandler) registerDiscordOAuth(ctx context.Context) error {
-	logger := withTraceID(ctx, o.logger, o.config.TraceIdKey).Named("register_discord")
+	logger := o.logEnricher(ctx, o.logger).Named("register_discord")
 	if o.config.DiscordOAuthClientID == "" || o.config.DiscordOAuthClientSecret == "" {
 		logger.Error("Discord OAuth client ID or secret missing during registration")
 		return errors.New("discord OAuth client ID and secret are required")

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/Suhaibinator/SRouter/pkg/middleware"
 	"go.uber.org/zap"
 	"golang.org/x/oauth2"
 )
@@ -19,17 +18,12 @@ type User struct {
 	LastName  string `json:"last_name"` // User's last name (if available)
 }
 
-// withTraceID adds the trace ID from the context to the logger, if available.
-func withTraceID(ctx context.Context, logger *zap.Logger, traceIdKey string) *zap.Logger {
-	// Assuming middleware.GetTraceIDFromContext handles nil context or missing ID gracefully.
-	return logger.With(zap.String(traceIdKey, middleware.GetTraceIDFromContext(ctx)))
-}
-
 // NewOAuthHandler creates and initializes a new OAuthHandler instance.
 // It requires a zap logger and an OAuthConfig configuration.
 // Returns nil if the provided config is nil.
 func NewOAuthHandler(
 	logger *zap.Logger,
+	logEnricher func(ctx context.Context, logger *zap.Logger) *zap.Logger,
 	config *OAuthConfig,
 ) *OAuthHandler {
 
@@ -40,10 +34,12 @@ func NewOAuthHandler(
 
 	// Create the handler
 	handler := &OAuthHandler{
-		logger: logger.Named("oauth"),
-		config: *config,
+		logger:      logger.Named("oauth"),
+		config:      *config,
+		logEnricher: logEnricher,
 	}
-
+	// Register the OAuth providers based on the provided configuration
+	handler.registerOAuthProviders(context.Background())
 	return handler
 }
 
@@ -99,13 +95,14 @@ var (
 
 // OAuthHandler manages the configuration and logic for multiple OAuth providers.
 type OAuthHandler struct {
-	googleOAuthConfig   *oauth2.Config     // Configuration for Google OAuth.
-	facebookOAuthConfig *oauth2.Config     // Configuration for Facebook OAuth.
-	appleOauthHandler   *AppleOauthHandler // Custom handler for Apple Sign In.
-	githubOAuthConfig   *oauth2.Config     // Configuration for GitHub OAuth.
-	linkedInOAuthConfig *oauth2.Config     // Configuration for LinkedIn OAuth.
-	discordOAuthConfig  *oauth2.Config     // Configuration for Discord OAuth.
-	logger              *zap.Logger        // Shared logger instance.
+	googleOAuthConfig   *oauth2.Config                                            // Configuration for Google OAuth.
+	facebookOAuthConfig *oauth2.Config                                            // Configuration for Facebook OAuth.
+	appleOauthHandler   *AppleOauthHandler                                        // Custom handler for Apple Sign In.
+	githubOAuthConfig   *oauth2.Config                                            // Configuration for GitHub OAuth.
+	linkedInOAuthConfig *oauth2.Config                                            // Configuration for LinkedIn OAuth.
+	discordOAuthConfig  *oauth2.Config                                            // Configuration for Discord OAuth.
+	logger              *zap.Logger                                               // Shared logger instance.
+	logEnricher         func(ctx context.Context, logger *zap.Logger) *zap.Logger // Function to enrich logs with trace ID.
 
 	config OAuthConfig // Stores the initial configuration.
 }
@@ -113,7 +110,7 @@ type OAuthHandler struct {
 // RegisterOAuthProviders iterates through the OAuthConfig and initializes
 // the corresponding provider handlers (oauth2.Config or custom handlers)
 // if their ClientID is configured. Logs warnings for registration failures.
-func (h *OAuthHandler) RegisterOAuthProviders(ctx context.Context) {
+func (h *OAuthHandler) registerOAuthProviders(ctx context.Context) {
 	// Initialize OAuth handlers based on configuration.
 	// Use logger associated with the handler (h.logger).
 	logger := h.logger.Named("registration") // Create a sub-logger for registration process
@@ -193,7 +190,7 @@ const (
 )
 
 func (h *OAuthHandler) LoginWithCode(ctx context.Context, provider OAuthProvider, code string) (*User, error) {
-	logger := withTraceID(ctx, h.logger, h.config.TraceIdKey)
+	logger := h.logEnricher(ctx, h.logger)
 
 	switch provider {
 	case GoogleOAuthProvider:
@@ -201,7 +198,7 @@ func (h *OAuthHandler) LoginWithCode(ctx context.Context, provider OAuthProvider
 	case FacebookOAuthProvider:
 		return h.facebookLoginWithCode(ctx, code)
 	case AppleOAuthProvider:
-		withTraceID(ctx, logger, h.config.TraceIdKey).Warn("Apple OAuth provider is not fully implemented")
+		logger.Warn("Apple OAuth provider is not fully implemented")
 		return h.appleLoginWithCode(ctx, code)
 	case GitHubOAuthProvider:
 		return h.gitHubLoginWithCode(ctx, code)
@@ -210,7 +207,7 @@ func (h *OAuthHandler) LoginWithCode(ctx context.Context, provider OAuthProvider
 	case DiscordOAuthProvider:
 		return h.discordLoginWithCode(ctx, code)
 	default:
-		withTraceID(ctx, logger, h.config.TraceIdKey).Error("Invalid OAuth provider")
+		logger.Error("Invalid OAuth provider")
 		return nil, errors.New("invalid OAuth provider")
 	}
 }

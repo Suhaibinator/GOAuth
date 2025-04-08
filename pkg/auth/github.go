@@ -123,7 +123,7 @@ func selectPrimaryGitHubEmail(emails []GitHubUserEmail) string {
 // Requires 'read:user' and 'user:email' scopes.
 // Returns ErrFailedToExchangeCode or ErrFailedToGetUserInfo on failure.
 func (o *OAuthHandler) gitHubLoginWithCode(ctx context.Context, code string) (*User, error) {
-	logger := withTraceID(ctx, o.logger, o.config.TraceIdKey).Named("github_login")
+	logger := o.logEnricher(ctx, o.logger).Named("github_login")
 
 	if o.githubOAuthConfig == nil {
 		logger.Error("GitHub OAuth config not initialized")
@@ -185,7 +185,7 @@ func (o *OAuthHandler) gitHubLoginWithCode(ctx context.Context, code string) (*U
 // GetGitHubAuthURL generates the URL to redirect the user to for GitHub authentication.
 // It includes the client ID, redirect URL, requested scopes ('read:user', 'user:email'), and state.
 func (o *OAuthHandler) GetGitHubAuthURL(ctx context.Context, state string) string {
-	logger := withTraceID(ctx, o.logger, o.config.TraceIdKey).Named("github_auth_url")
+	logger := o.logEnricher(ctx, o.logger).Named("github_auth_url")
 	if o.githubOAuthConfig == nil {
 		logger.Error("GitHub OAuth config not initialized for GetGitHubAuthURL")
 		return ""
@@ -199,7 +199,7 @@ func (o *OAuthHandler) GetGitHubAuthURL(ctx context.Context, state string) strin
 // using the credentials provided in the main OAuthConfig.
 // It sets the 'read:user' and 'user:email' scopes.
 func (o *OAuthHandler) registerGitHubOAuth(ctx context.Context) error {
-	logger := withTraceID(ctx, o.logger, o.config.TraceIdKey).Named("register_github")
+	logger := o.logEnricher(ctx, o.logger).Named("register_github")
 	if o.config.GitHubOAuthClientID == "" || o.config.GitHubOAuthClientSecret == "" {
 		logger.Error("GitHub OAuth client ID or secret missing during registration")
 		return errors.New("github OAuth client ID and secret are required")

@@ -34,7 +34,7 @@ type GoogleUserInfo struct {
 // and maps it to the standardized User struct.
 // Returns ErrFailedToExchangeCode or ErrFailedToGetUserInfo on failure.
 func (o *OAuthHandler) googleLoginWithCode(ctx context.Context, code string) (*User, error) {
-	logger := withTraceID(ctx, o.logger, o.config.TraceIdKey).Named("google_login")
+	logger := o.logEnricher(ctx, o.logger).Named("google_login")
 
 	if o.googleOAuthConfig == nil {
 		logger.Error("Google OAuth config not initialized")
@@ -99,7 +99,7 @@ func (o *OAuthHandler) googleLoginWithCode(ctx context.Context, code string) (*U
 // It includes the necessary client ID, redirect URL, scopes, and state parameter.
 // Requests offline access to potentially receive a refresh token.
 func (o *OAuthHandler) GetGoogleAuthURL(ctx context.Context, state string) string {
-	logger := withTraceID(ctx, o.logger, o.config.TraceIdKey).Named("google_auth_url")
+	logger := o.logEnricher(ctx, o.logger).Named("google_auth_url")
 	if o.googleOAuthConfig == nil {
 		logger.Error("Google OAuth config not initialized for GetGoogleAuthURL")
 		return ""
@@ -113,7 +113,7 @@ func (o *OAuthHandler) GetGoogleAuthURL(ctx context.Context, state string) strin
 // using the credentials provided in the main OAuthConfig.
 // It sets the standard "openid", "email", and "profile" scopes.
 func (o *OAuthHandler) registerGoogleOAuth(ctx context.Context) error {
-	logger := withTraceID(ctx, o.logger, o.config.TraceIdKey).Named("register_google")
+	logger := o.logEnricher(ctx, o.logger).Named("register_google")
 	if o.config.GoogleOAuthClientID == "" || o.config.GoogleOAuthClientSecret == "" {
 		logger.Error("Google OAuth client ID or secret missing during registration")
 		return errors.New("google OAuth client ID and secret are required")

@@ -65,14 +65,13 @@ func main() {
 		TraceIdKey: traceIDKey,
 	}
 
-	oauthHandler = auth.NewOAuthHandler(logger.Named("GOAuth"), oauthConfig)
+	oauthHandler = auth.NewOAuthHandler(logger.Named("GOAuth"), func(ctx context.Context, logger *zap.Logger) *zap.Logger {
+		return logger
+	}, oauthConfig)
 	if oauthHandler == nil {
 		logger.Fatal("Failed to create OAuth handler")
 	}
 
-	// Register providers based on config
-	// Using background context for registration, consider a more specific context if needed
-	oauthHandler.RegisterOAuthProviders(context.Background())
 	// -----------------------------
 
 	// --- Setup HTTP Server ---

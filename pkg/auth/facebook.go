@@ -78,7 +78,7 @@ func fetchFacebookUserInfo(ctx context.Context, client *http.Client) (*FacebookU
 // Requires 'public_profile' and 'email' scopes for full user details.
 // Returns ErrFailedToExchangeCode or ErrFailedToGetUserInfo on failure.
 func (o *OAuthHandler) facebookLoginWithCode(ctx context.Context, code string) (*User, error) {
-	logger := withTraceID(ctx, o.logger, o.config.TraceIdKey).Named("facebook_login")
+	logger := o.logEnricher(ctx, o.logger).Named("facebook_login")
 
 	if o.facebookOAuthConfig == nil {
 		logger.Error("Facebook OAuth config not initialized")
@@ -130,7 +130,7 @@ func (o *OAuthHandler) facebookLoginWithCode(ctx context.Context, code string) (
 // GetFacebookAuthURL generates the URL to redirect the user to for Facebook authentication.
 // It includes the client ID, redirect URL, requested scopes ('public_profile', 'email'), and state.
 func (o *OAuthHandler) GetFacebookAuthURL(ctx context.Context, state string) string {
-	logger := withTraceID(ctx, o.logger, o.config.TraceIdKey).Named("facebook_auth_url")
+	logger := o.logEnricher(ctx, o.logger).Named("facebook_auth_url")
 	if o.facebookOAuthConfig == nil {
 		logger.Error("Facebook OAuth config not initialized for GetFacebookAuthURL")
 		return ""
@@ -144,7 +144,7 @@ func (o *OAuthHandler) GetFacebookAuthURL(ctx context.Context, state string) str
 // using the credentials provided in the main OAuthConfig.
 // It sets the 'public_profile' and 'email' scopes.
 func (o *OAuthHandler) registerFacebookOAuth(ctx context.Context) error {
-	logger := withTraceID(ctx, o.logger, o.config.TraceIdKey).Named("register_facebook")
+	logger := o.logEnricher(ctx, o.logger).Named("register_facebook")
 	if o.config.FacebookOAuthClientID == "" || o.config.FacebookOAuthClientSecret == "" {
 		logger.Error("Facebook OAuth client ID or secret missing during registration")
 		return errors.New("facebook OAuth client ID and secret are required")

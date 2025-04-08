@@ -176,7 +176,7 @@ func (a *AppleOauthHandler) GetAuthURL(state string) string {
 // current AppleOauthHandler. It does not perform proper client secret generation or ID token validation.
 // It's suitable only for basic demonstration and MUST be heavily modified for production.
 func (o *OAuthHandler) appleLoginWithCode(ctx context.Context, code string) (*User, error) {
-	logger := withTraceID(ctx, o.logger, o.config.TraceIdKey).Named("apple_login")
+	logger := o.logEnricher(ctx, o.logger).Named("apple_login")
 	if o.appleOauthHandler == nil {
 		logger.Error("Apple OAuth handler not initialized")
 		return nil, errors.New("apple OAuth handler not initialized")
@@ -185,14 +185,14 @@ func (o *OAuthHandler) appleLoginWithCode(ctx context.Context, code string) (*Us
 	// Exchange the code for an access token and ID token
 	token, err := o.appleOauthHandler.Exchange(code)
 	if err != nil {
-		withTraceID(ctx, o.logger, o.config.TraceIdKey).Error("Failed to exchange code for token", zap.Error(err))
+		o.logEnricher(ctx, o.logger).Error("Failed to exchange code for token", zap.Error(err))
 		return nil, ErrFailedToExchangeCode
 	}
 
 	// Get the user info from the ID token
 	appleUser, err := o.appleOauthHandler.GetUserInfo(token)
 	if err != nil {
-		withTraceID(ctx, o.logger, o.config.TraceIdKey).Error("Failed to get user info from ID token", zap.Error(err))
+		o.logEnricher(ctx, o.logger).Error("Failed to get user info from ID token", zap.Error(err))
 		return nil, ErrFailedToGetUserInfo
 	}
 
@@ -208,7 +208,7 @@ func (o *OAuthHandler) appleLoginWithCode(ctx context.Context, code string) (*Us
 
 // GetAppleAuthURL generates the authorization URL using the configured Apple handler.
 func (o *OAuthHandler) GetAppleAuthURL(ctx context.Context, state string) string {
-	logger := withTraceID(ctx, o.logger, o.config.TraceIdKey).Named("apple_auth_url")
+	logger := o.logEnricher(ctx, o.logger).Named("apple_auth_url")
 	if o.appleOauthHandler == nil {
 		logger.Error("Apple OAuth handler not initialized for GetAppleAuthURL")
 		return ""
@@ -222,7 +222,7 @@ func (o *OAuthHandler) GetAppleAuthURL(ctx context.Context, state string) string
 // requires TeamID, KeyID, and PrivateKey details from the OAuthConfig struct to be passed
 // to a modified NewAppleOauthHandler capable of JWT generation.
 func (o *OAuthHandler) registerAppleOAuth(ctx context.Context) error {
-	logger := withTraceID(ctx, o.logger, o.config.TraceIdKey).Named("register_apple")
+	logger := o.logEnricher(ctx, o.logger).Named("register_apple")
 	if o.config.AppleOAuthClientID == "" || o.config.AppleOAuthClientSecret == "" {
 		// This check is misleading as AppleOAuthClientSecret shouldn't be a static secret.
 		logger.Error("Apple OAuth configuration incomplete (ClientID and Secret/Key details needed)")

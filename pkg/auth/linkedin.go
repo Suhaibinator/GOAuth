@@ -180,7 +180,7 @@ func extractLinkedInProfilePictureURL(pic *LinkedInPicture) string {
 // Requires appropriate scopes like 'profile', 'email', 'openid' (or older 'r_liteprofile', 'r_emailaddress').
 // Returns ErrFailedToExchangeCode or ErrFailedToGetUserInfo on failure.
 func (o *OAuthHandler) linkedInLoginWithCode(ctx context.Context, code string) (*User, error) {
-	logger := withTraceID(ctx, o.logger, o.config.TraceIdKey).Named("linkedin_login")
+	logger := o.logEnricher(ctx, o.logger).Named("linkedin_login")
 
 	if o.linkedInOAuthConfig == nil {
 		logger.Error("LinkedIn OAuth config not initialized")
@@ -251,7 +251,7 @@ func (o *OAuthHandler) linkedInLoginWithCode(ctx context.Context, code string) (
 // GetLinkedInAuthURL generates the URL to redirect the user to for LinkedIn authentication.
 // It includes the client ID, redirect URL, requested scopes, and state.
 func (o *OAuthHandler) GetLinkedInAuthURL(ctx context.Context, state string) string {
-	logger := withTraceID(ctx, o.logger, o.config.TraceIdKey).Named("linkedin_auth_url")
+	logger := o.logEnricher(ctx, o.logger).Named("linkedin_auth_url")
 	if o.linkedInOAuthConfig == nil {
 		logger.Error("LinkedIn OAuth config not initialized for GetLinkedInAuthURL")
 		return ""
@@ -266,7 +266,7 @@ func (o *OAuthHandler) GetLinkedInAuthURL(ctx context.Context, state string) str
 // It sets standard OpenID Connect scopes ('profile', 'email', 'openid').
 // Note: Older LinkedIn apps might use 'r_liteprofile', 'r_emailaddress'. Adjust scopes if needed.
 func (o *OAuthHandler) registerLinkedInOAuth(ctx context.Context) error {
-	logger := withTraceID(ctx, o.logger, o.config.TraceIdKey).Named("register_linkedin")
+	logger := o.logEnricher(ctx, o.logger).Named("register_linkedin")
 	if o.config.LinkedInOAuthClientID == "" || o.config.LinkedInOAuthClientSecret == "" {
 		logger.Error("LinkedIn OAuth client ID or secret missing during registration")
 		return errors.New("linkedin OAuth client ID and secret are required")
