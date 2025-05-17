@@ -11,7 +11,7 @@ This package aims to provide a consistent interface for handling OAuth 2.0 authe
 
 **Current Status:**
 *   Providers (Google, GitHub, Discord, LinkedIn, Facebook) have been refactored to use `golang.org/x/oauth2`.
-*   Sign in with Apple uses a **simplified custom implementation** that requires significant enhancement for production use (specifically JWT client secret generation and ID token validation).
+*   Sign in with Apple now includes dynamic client secret generation. You should still verify the returned ID token in your application.
 *   Basic GoDoc comments have been added.
 *   An example server demonstrates usage (`examples/simple_server/main.go`).
 *   **Testing is currently missing.**
@@ -23,7 +23,7 @@ This package aims to provide a consistent interface for handling OAuth 2.0 authe
 *   Discord
 *   LinkedIn
 *   Facebook
-*   Apple (Requires significant implementation improvements for production)
+*   Apple
 
 ## Installation
 
@@ -59,9 +59,16 @@ func main() {
 
 		GitHubOAuthClientID:     "YOUR_GITHUB_CLIENT_ID",
 		GitHubOAuthClientSecret: "YOUR_GITHUB_CLIENT_SECRET",
-		GitHubOAuthRedirectURL:  "http://localhost:8080/callback/github",
+               GitHubOAuthRedirectURL:  "http://localhost:8080/callback/github",
 
-		// ... configure other providers ...
+                // Apple credentials
+                AppleOAuthClientID:   "YOUR_APPLE_SERVICE_ID",
+                AppleOAuthTeamID:     "YOUR_TEAM_ID",
+                AppleOAuthKeyID:      "YOUR_KEY_ID",
+                AppleOAuthPrivateKey: "-----BEGIN PRIVATE KEY-----...",
+                AppleOAuthRedirectURL: "http://localhost:8080/callback/apple",
+
+                // ... configure other providers ...
 
 		TraceIdKey: "X-Request-ID", // Optional: For context logging
 	}
@@ -88,7 +95,7 @@ func main() {
 
 ## Improvements & Future Work
 
-*   **Apple Sign In:** Complete the implementation with proper JWT client secret generation and ID token validation using Apple's public keys.
+*   **Apple Sign In:** Add full ID token validation using Apple's public keys.
 *   **Testing:** Add comprehensive unit and integration tests for all providers.
 *   **Error Handling:** Refine error types and context.
 *   **State Management:** Implement robust CSRF protection using state parameters (the example includes placeholders).
