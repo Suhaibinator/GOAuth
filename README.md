@@ -21,6 +21,7 @@ This package aims to provide a consistent interface for handling OAuth 2.0 authe
 *   Google
 *   GitHub
 *   Discord
+*   Quran.Foundation
 *   LinkedIn
 *   Facebook
 *   Apple

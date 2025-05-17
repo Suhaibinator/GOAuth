@@ -23,6 +23,8 @@ const (
 	googleClientSecret = "YOUR_GOOGLE_CLIENT_SECRET"
 	githubClientID     = "YOUR_GITHUB_CLIENT_ID"
 	githubClientSecret = "YOUR_GITHUB_CLIENT_SECRET"
+	quranClientID      = "YOUR_QURANFOUNDATION_CLIENT_ID"
+	quranClientSecret  = "YOUR_QURANFOUNDATION_CLIENT_SECRET"
 	// Add other provider credentials as needed
 	redirectURIBase = "http://localhost:8080/callback/" // Base URL for callbacks
 	traceIDKey      = "X-Request-ID"                    // Example context key for trace ID (used for header)
@@ -59,6 +61,10 @@ func main() {
 		GitHubOAuthClientSecret: githubClientSecret,
 		GitHubOAuthRedirectURL:  redirectURIBase + "github",
 
+		QuranFoundationOAuthClientID:     quranClientID,
+		QuranFoundationOAuthClientSecret: quranClientSecret,
+		QuranFoundationOAuthRedirectURL:  redirectURIBase + "quran",
+
 		// Add configurations for other providers (Facebook, Discord, LinkedIn, Apple) here
 		// Ensure Redirect URLs match the callback handlers below
 
@@ -83,11 +89,13 @@ func main() {
 	// Login initiation routes
 	mux.HandleFunc("/login/google", handleLoginGoogle)
 	mux.HandleFunc("/login/github", handleLoginGithub)
+	mux.HandleFunc("/login/quran", handleLoginQuran)
 	// Add login routes for other providers...
 
 	// Callback handling routes
 	mux.HandleFunc("/callback/google", handleCallbackGoogle)
 	mux.HandleFunc("/callback/github", handleCallbackGithub)
+	mux.HandleFunc("/callback/quran", handleCallbackQuran)
 	// Add callback routes for other providers...
 
 	// Middleware for logging and trace ID (basic example)
@@ -115,6 +123,7 @@ func handleHome(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, `<h1>GOAuth Example</h1>`)
 	fmt.Fprintln(w, `<p><a href="/login/google">Login with Google</a></p>`)
 	fmt.Fprintln(w, `<p><a href="/login/github">Login with GitHub</a></p>`)
+	fmt.Fprintln(w, `<p><a href="/login/quran">Login with Quran.Foundation</a></p>`)
 	// Add links for other providers
 }
 
@@ -141,6 +150,19 @@ func handleLoginGithub(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Info("Redirecting to GitHub for login", zap.String("state", state))
+	http.Redirect(w, r, authURL, http.StatusFound)
+}
+
+// handleLoginQuran initiates the Quran.Foundation OAuth flow.
+func handleLoginQuran(w http.ResponseWriter, r *http.Request) {
+	state := uuid.NewString()
+	// TODO: Store state securely
+	authURL := oauthHandler.GetQuranFoundationAuthURL(r.Context(), state)
+	if authURL == "" {
+		http.Error(w, "Quran.Foundation Auth URL generation failed", http.StatusInternalServerError)
+		return
+	}
+	logger.Info("Redirecting to Quran.Foundation for login", zap.String("state", state))
 	http.Redirect(w, r, authURL, http.StatusFound)
 }
 
@@ -216,6 +238,41 @@ func handleCallbackGithub(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 	fmt.Fprintf(w, "<h1>Login Successful (GitHub)</h1><pre>%+v</pre>", user)
 	// TODO: Real session management
+}
+
+// handleCallbackQuran handles the redirect back from Quran.Foundation.
+func handleCallbackQuran(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	state := r.URL.Query().Get("state")
+	code := r.URL.Query().Get("code")
+	errStr := r.URL.Query().Get("error")
+
+	// TODO: Verify state
+
+	if errStr != "" {
+		logger.Error("Quran.Foundation OAuth callback error", zap.String("error", errStr))
+		http.Error(w, "Login failed: "+errStr, http.StatusUnauthorized)
+		return
+	}
+
+	if code == "" {
+		logger.Error("Quran.Foundation OAuth callback missing code")
+		http.Error(w, "Login failed: Missing authorization code", http.StatusBadRequest)
+		return
+	}
+
+	logger.Info("Received Quran.Foundation callback", zap.String("state", state), zap.String("code", code))
+
+	user, err := oauthHandler.LoginWithCode(ctx, auth.QuranFoundationOAuthProvider, code)
+	if err != nil {
+		logger.Error("Quran.Foundation login failed", zap.Error(err))
+		http.Error(w, "Login failed processing code", http.StatusInternalServerError)
+		return
+	}
+
+	logger.Info("Quran.Foundation Login Successful", zap.Any("user", user))
+	w.Header().Set("Content-Type", "text/html")
+	fmt.Fprintf(w, "<h1>Login Successful (Quran.Foundation)</h1><pre>%+v</pre>", user)
 }
 
 // --- Middleware ---
