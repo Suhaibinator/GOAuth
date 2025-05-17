@@ -57,10 +57,13 @@ type OAuthConfig struct {
 	FacebookOAuthClientSecret string
 	FacebookOAuthRedirectURL  string
 
-	// Apple Sign In Configuration (Note: Secret might be complex, e.g., key file path)
-	AppleOAuthClientID     string
-	AppleOAuthClientSecret string // Or Key ID / Team ID / Key File Path depending on implementation
-	AppleOAuthRedirectURL  string
+	// Apple Sign In Configuration
+	// Requires team ID, key ID and the private key used to sign the client secret JWT
+	AppleOAuthClientID    string
+	AppleOAuthTeamID      string
+	AppleOAuthKeyID       string
+	AppleOAuthPrivateKey  string // PEM encoded private key or path to .p8 file
+	AppleOAuthRedirectURL string
 
 	// GitHub OAuth Configuration
 
