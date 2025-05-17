@@ -79,6 +79,11 @@ type OAuthConfig struct {
 	DiscordOAuthClientSecret string
 	DiscordOAuthRedirectURL  string
 
+	// Quran.Foundation OAuth Configuration
+	QuranFoundationOAuthClientID     string
+	QuranFoundationOAuthClientSecret string
+	QuranFoundationOAuthRedirectURL  string
+
 	// TraceIdKey is the key used to extract the trace ID from the context for logging.
 	TraceIdKey string
 }
@@ -95,14 +100,16 @@ var (
 
 // OAuthHandler manages the configuration and logic for multiple OAuth providers.
 type OAuthHandler struct {
-	googleOAuthConfig   *oauth2.Config                                            // Configuration for Google OAuth.
-	facebookOAuthConfig *oauth2.Config                                            // Configuration for Facebook OAuth.
-	appleOauthHandler   *AppleOauthHandler                                        // Custom handler for Apple Sign In.
-	githubOAuthConfig   *oauth2.Config                                            // Configuration for GitHub OAuth.
-	linkedInOAuthConfig *oauth2.Config                                            // Configuration for LinkedIn OAuth.
-	discordOAuthConfig  *oauth2.Config                                            // Configuration for Discord OAuth.
-	logger              *zap.Logger                                               // Shared logger instance.
-	logEnricher         func(ctx context.Context, logger *zap.Logger) *zap.Logger // Function to enrich logs with trace ID.
+	googleOAuthConfig          *oauth2.Config     // Configuration for Google OAuth.
+	facebookOAuthConfig        *oauth2.Config     // Configuration for Facebook OAuth.
+	appleOauthHandler          *AppleOauthHandler // Custom handler for Apple Sign In.
+	githubOAuthConfig          *oauth2.Config     // Configuration for GitHub OAuth.
+	linkedInOAuthConfig        *oauth2.Config     // Configuration for LinkedIn OAuth.
+	discordOAuthConfig         *oauth2.Config     // Configuration for Discord OAuth.
+	quranFoundationOAuthConfig *oauth2.Config
+	// Configuration for Quran.Foundation OAuth.
+	logger      *zap.Logger                                               // Shared logger instance.
+	logEnricher func(ctx context.Context, logger *zap.Logger) *zap.Logger // Function to enrich logs with trace ID.
 
 	config OAuthConfig // Stores the initial configuration.
 }
@@ -166,6 +173,16 @@ func (h *OAuthHandler) registerOAuthProviders(ctx context.Context) {
 		logger.Info("Discord OAuth registration skipped (missing config)")
 	}
 
+	if h.config.QuranFoundationOAuthClientID != "" {
+		if err := h.registerQuranFoundationOAuth(ctx); err != nil {
+			logger.Warn("Failed to register Quran.Foundation OAuth", zap.Error(err))
+		} else {
+			logger.Info("Quran.Foundation OAuth registered successfully")
+		}
+	} else {
+		logger.Info("Quran.Foundation OAuth registration skipped (missing config)")
+	}
+
 	if h.config.LinkedInOAuthClientID != "" {
 		if err := h.registerLinkedInOAuth(ctx); err != nil {
 			logger.Warn("Failed to register LinkedIn OAuth", zap.Error(err))
@@ -187,6 +204,7 @@ const (
 	GitHubOAuthProvider
 	LinkedInOAuthProvider
 	DiscordOAuthProvider
+	QuranFoundationOAuthProvider
 )
 
 func (h *OAuthHandler) LoginWithCode(ctx context.Context, provider OAuthProvider, code string) (*User, error) {
@@ -206,6 +224,8 @@ func (h *OAuthHandler) LoginWithCode(ctx context.Context, provider OAuthProvider
 		return h.linkedInLoginWithCode(ctx, code)
 	case DiscordOAuthProvider:
 		return h.discordLoginWithCode(ctx, code)
+	case QuranFoundationOAuthProvider:
+		return h.quranFoundationLoginWithCode(ctx, code)
 	default:
 		logger.Error("Invalid OAuth provider")
 		return nil, errors.New("invalid OAuth provider")
