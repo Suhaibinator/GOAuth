@@ -19,6 +19,7 @@ import (
 	"encoding/pem"
 
 	"go.uber.org/zap"
+	"golang.org/x/oauth2"
 )
 
 // ===== Sign in with Apple =====
@@ -282,4 +283,51 @@ func (o *OAuthHandler) registerAppleOAuth(ctx context.Context) error {
 	o.appleOauthHandler = handler
 	logger.Info("Apple OAuth handler registered")
 	return nil
+}
+
+// Refresh exchanges a refresh token for a new access token using Apple's token endpoint.
+func (a *AppleOauthHandler) Refresh(ctx context.Context, refreshToken string) (*oauth2.Token, error) {
+	if refreshToken == "" {
+		return nil, errors.New("refresh token is empty")
+	}
+
+	clientSecret, err := a.generateClientSecret()
+	if err != nil {
+		return nil, err
+	}
+
+	data := url.Values{}
+	data.Set("client_id", a.ClientID)
+	data.Set("client_secret", clientSecret)
+	data.Set("grant_type", "refresh_token")
+	data.Set("refresh_token", refreshToken)
+
+	req, err := http.NewRequestWithContext(ctx, "POST", "https://appleid.apple.com/auth/token", strings.NewReader(data.Encode()))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := a.HTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to refresh token: %s, status: %d", string(body), resp.StatusCode)
+	}
+
+	var tokenResp AppleTokenResponse
+	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
+		return nil, err
+	}
+
+	return &oauth2.Token{
+		AccessToken:  tokenResp.AccessToken,
+		TokenType:    tokenResp.TokenType,
+		RefreshToken: tokenResp.RefreshToken,
+		Expiry:       time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second),
+	}, nil
 }
