@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"time"
 
 	"go.uber.org/zap"
 	"golang.org/x/oauth2"
@@ -233,6 +234,56 @@ func (h *OAuthHandler) LoginWithCode(ctx context.Context, provider OAuthProvider
 		logger.Error("Invalid OAuth provider")
 		return nil, errors.New("invalid OAuth provider")
 	}
+}
+
+// RefreshToken attempts to exchange a refresh token for a new access token for the
+// specified provider. Only providers that have been configured will be able to
+// refresh tokens. The returned oauth2.Token will contain the new access token
+// and potentially a new refresh token if the provider rotates them.
+func (h *OAuthHandler) RefreshToken(ctx context.Context, provider OAuthProvider, refreshToken string) (*oauth2.Token, error) {
+	logger := h.logEnricher(ctx, h.logger).Named("refresh_token")
+
+	if refreshToken == "" {
+		logger.Error("refresh token is empty")
+		return nil, errors.New("refresh token is empty")
+	}
+
+	switch provider {
+	case GoogleOAuthProvider:
+		return h.refreshWithConfig(ctx, h.googleOAuthConfig, refreshToken)
+	case FacebookOAuthProvider:
+		return h.refreshWithConfig(ctx, h.facebookOAuthConfig, refreshToken)
+	case GitHubOAuthProvider:
+		return h.refreshWithConfig(ctx, h.githubOAuthConfig, refreshToken)
+	case LinkedInOAuthProvider:
+		return h.refreshWithConfig(ctx, h.linkedInOAuthConfig, refreshToken)
+	case DiscordOAuthProvider:
+		return h.refreshWithConfig(ctx, h.discordOAuthConfig, refreshToken)
+	case QuranFoundationOAuthProvider:
+		return h.refreshWithConfig(ctx, h.quranFoundationOAuthConfig, refreshToken)
+	case AppleOAuthProvider:
+		if h.appleOauthHandler == nil {
+			logger.Error("Apple OAuth handler not initialized")
+			return nil, errors.New("apple OAuth handler not initialized")
+		}
+		return h.appleOauthHandler.Refresh(ctx, refreshToken)
+	default:
+		logger.Error("Invalid OAuth provider for refresh")
+		return nil, errors.New("invalid OAuth provider")
+	}
+}
+
+// refreshWithConfig performs a token refresh using a standard oauth2.Config.
+func (h *OAuthHandler) refreshWithConfig(ctx context.Context, conf *oauth2.Config, refreshToken string) (*oauth2.Token, error) {
+	if conf == nil {
+		return nil, errors.New("oauth config not initialized")
+	}
+	ts := conf.TokenSource(ctx, &oauth2.Token{RefreshToken: refreshToken, Expiry: time.Now().Add(-time.Hour)})
+	tok, err := ts.Token()
+	if err != nil {
+		return nil, err
+	}
+	return tok, nil
 }
 
 // Stop performs any cleanup needed for the OAuthHandler

@@ -14,6 +14,7 @@ This package aims to provide a consistent interface for handling OAuth 2.0 authe
 *   Sign in with Apple now includes dynamic client secret generation. You should still verify the returned ID token in your application.
 *   Basic GoDoc comments have been added.
 *   An example server demonstrates usage (`examples/simple_server/main.go`).
+*   Tokens can be refreshed via `OAuthHandler.RefreshToken`.
 *   **Testing is currently missing.**
 
 ## Supported Providers (Partial List)

@@ -1,6 +1,6 @@
 module github.com/Suhaibinator/GOAuth
 
-go 1.24.3
+go 1.23
 
 require golang.org/x/oauth2 v0.30.0
 
