@@ -41,6 +41,19 @@ type FacebookPicture struct {
 	IsSilhouette bool   `json:"is_silhouette"` // Indicates if the picture is the default Facebook silhouette.
 }
 
+// facebookProvider implements the Provider interface for Facebook OAuth.
+type facebookProvider struct {
+	handler *OAuthHandler
+}
+
+func (f *facebookProvider) AuthURL(ctx context.Context, state string) string {
+	return f.handler.GetFacebookAuthURL(ctx, state)
+}
+
+func (f *facebookProvider) Login(ctx context.Context, code string) (*User, error) {
+	return f.handler.facebookLoginWithCode(ctx, code)
+}
+
 // fetchFacebookUserInfo retrieves the authenticated user's profile information from the Facebook Graph API (`/me`).
 // It requires an authorized http.Client and appropriate scopes (e.g., `public_profile`, `email`).
 // It requests specific fields like id, name, email, first_name, last_name, and picture.
@@ -143,11 +156,11 @@ func (o *OAuthHandler) GetFacebookAuthURL(ctx context.Context, state string) str
 // registerFacebookOAuth creates and stores the oauth2.Config for Facebook,
 // using the credentials provided in the main OAuthConfig.
 // It sets the 'public_profile' and 'email' scopes.
-func (o *OAuthHandler) registerFacebookOAuth(ctx context.Context) error {
+func (o *OAuthHandler) registerFacebookOAuth(ctx context.Context) (Provider, error) {
 	logger := o.logEnricher(ctx, o.logger).Named("register_facebook")
 	if o.config.FacebookOAuthClientID == "" || o.config.FacebookOAuthClientSecret == "" {
 		logger.Error("Facebook OAuth client ID or secret missing during registration")
-		return errors.New("facebook OAuth client ID and secret are required")
+		return nil, errors.New("facebook OAuth client ID and secret are required")
 	}
 
 	// Define required scopes. Common ones are 'public_profile' and 'email'.
@@ -162,5 +175,5 @@ func (o *OAuthHandler) registerFacebookOAuth(ctx context.Context) error {
 	}
 
 	logger.Info("Facebook OAuth handler registered using golang.org/x/oauth2", zap.Strings("scopes", scopes))
-	return nil
+	return &facebookProvider{handler: o}, nil
 }

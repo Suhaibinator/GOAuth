@@ -38,6 +38,19 @@ type AppleOauthHandler struct {
 	HTTPClient  *http.Client
 }
 
+// appleProvider implements the Provider interface for Sign in with Apple.
+type appleProvider struct {
+	handler *OAuthHandler
+}
+
+func (a *appleProvider) AuthURL(ctx context.Context, state string) string {
+	return a.handler.GetAppleAuthURL(ctx, state)
+}
+
+func (a *appleProvider) Login(ctx context.Context, code string) (*User, error) {
+	return a.handler.appleLoginWithCode(ctx, code)
+}
+
 // generateClientSecret creates the JWT client secret required by Apple.
 func (a *AppleOauthHandler) generateClientSecret() (string, error) {
 	now := time.Now()
@@ -261,12 +274,12 @@ func (o *OAuthHandler) GetAppleAuthURL(ctx context.Context, state string) string
 }
 
 // registerAppleOAuth initializes the Apple OAuth handler using the configuration values.
-func (o *OAuthHandler) registerAppleOAuth(ctx context.Context) error {
+func (o *OAuthHandler) registerAppleOAuth(ctx context.Context) (Provider, error) {
 	logger := o.logEnricher(ctx, o.logger).Named("register_apple")
 	if o.config.AppleOAuthClientID == "" || o.config.AppleOAuthTeamID == "" ||
 		o.config.AppleOAuthKeyID == "" || o.config.AppleOAuthPrivateKey == "" {
 		logger.Error("Apple OAuth configuration incomplete")
-		return errors.New("apple OAuth requires client id, team id, key id and private key")
+		return nil, errors.New("apple OAuth requires client id, team id, key id and private key")
 	}
 
 	handler, err := NewAppleOauthHandler(
@@ -276,13 +289,13 @@ func (o *OAuthHandler) registerAppleOAuth(ctx context.Context) error {
 		o.config.AppleOAuthPrivateKey,
 		o.config.AppleOAuthRedirectURL,
 	)
-	if err != nil {
-		logger.Error("failed to create apple handler", zap.Error(err))
-		return err
-	}
+       if err != nil {
+               logger.Error("failed to create apple handler", zap.Error(err))
+               return nil, err
+       }
 	o.appleOauthHandler = handler
 	logger.Info("Apple OAuth handler registered")
-	return nil
+	return &appleProvider{handler: o}, nil
 }
 
 // Refresh exchanges a refresh token for a new access token using Apple's token endpoint.
