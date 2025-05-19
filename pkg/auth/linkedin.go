@@ -59,6 +59,19 @@ type LinkedInEmailElement struct {
 	Primary     bool   `json:"primary"` // Indicates if this is the primary email. (May not always be present/reliable).
 }
 
+// linkedinProvider implements the Provider interface for LinkedIn OAuth.
+type linkedinProvider struct {
+	handler *OAuthHandler
+}
+
+func (l *linkedinProvider) AuthURL(ctx context.Context, state string) string {
+	return l.handler.GetLinkedInAuthURL(ctx, state)
+}
+
+func (l *linkedinProvider) Login(ctx context.Context, code string) (*User, error) {
+	return l.handler.linkedInLoginWithCode(ctx, code)
+}
+
 // fetchLinkedInUserInfo retrieves the user's basic profile information from the LinkedIn API (`/v2/me`).
 // It requires an authorized http.Client and appropriate scopes (`profile` or `r_liteprofile`).
 // It requests specific fields using projections.
@@ -265,11 +278,11 @@ func (o *OAuthHandler) GetLinkedInAuthURL(ctx context.Context, state string) str
 // using the credentials provided in the main OAuthConfig.
 // It sets standard OpenID Connect scopes ('profile', 'email', 'openid').
 // Note: Older LinkedIn apps might use 'r_liteprofile', 'r_emailaddress'. Adjust scopes if needed.
-func (o *OAuthHandler) registerLinkedInOAuth(ctx context.Context) error {
+func (o *OAuthHandler) registerLinkedInOAuth(ctx context.Context) (Provider, error) {
 	logger := o.logEnricher(ctx, o.logger).Named("register_linkedin")
 	if o.config.LinkedInOAuthClientID == "" || o.config.LinkedInOAuthClientSecret == "" {
 		logger.Error("LinkedIn OAuth client ID or secret missing during registration")
-		return errors.New("linkedin OAuth client ID and secret are required")
+		return nil, errors.New("linkedin OAuth client ID and secret are required")
 	}
 
 	// Define required scopes. 'r_liteprofile' for basic profile, 'r_emailaddress' for email.
@@ -288,5 +301,5 @@ func (o *OAuthHandler) registerLinkedInOAuth(ctx context.Context) error {
 	}
 
 	logger.Info("LinkedIn OAuth handler registered using golang.org/x/oauth2", zap.Strings("scopes", scopes))
-	return nil
+	return &linkedinProvider{handler: o}, nil
 }

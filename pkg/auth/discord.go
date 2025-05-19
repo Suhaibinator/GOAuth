@@ -33,6 +33,19 @@ type DiscordUserInfo struct {
 	GlobalName    string `json:"global_name"`   // The user's display name, if set. For bots, this is the application name.
 }
 
+// discordProvider implements the Provider interface for Discord OAuth.
+type discordProvider struct {
+	handler *OAuthHandler
+}
+
+func (d *discordProvider) AuthURL(ctx context.Context, state string) string {
+	return d.handler.GetDiscordAuthURL(ctx, state)
+}
+
+func (d *discordProvider) Login(ctx context.Context, code string) (*User, error) {
+	return d.handler.discordLoginWithCode(ctx, code)
+}
+
 // getDiscordAvatarURL constructs the full URL for a user's avatar given their ID and avatar hash.
 // Returns an empty string if the avatar hash is empty (user might have default avatar).
 // See: https://discord.com/developers/docs/reference#image-formatting
@@ -144,11 +157,11 @@ func (o *OAuthHandler) GetDiscordAuthURL(ctx context.Context, state string) stri
 // registerDiscordOAuth creates and stores the oauth2.Config for Discord,
 // using the credentials provided in the main OAuthConfig.
 // It manually defines the Discord API endpoints and sets the 'identify' and 'email' scopes.
-func (o *OAuthHandler) registerDiscordOAuth(ctx context.Context) error {
+func (o *OAuthHandler) registerDiscordOAuth(ctx context.Context) (Provider, error) {
 	logger := o.logEnricher(ctx, o.logger).Named("register_discord")
 	if o.config.DiscordOAuthClientID == "" || o.config.DiscordOAuthClientSecret == "" {
 		logger.Error("Discord OAuth client ID or secret missing during registration")
-		return errors.New("discord OAuth client ID and secret are required")
+		return nil, errors.New("discord OAuth client ID and secret are required")
 	}
 
 	o.discordOAuthConfig = &oauth2.Config{
@@ -164,5 +177,5 @@ func (o *OAuthHandler) registerDiscordOAuth(ctx context.Context) error {
 	}
 
 	logger.Info("Discord OAuth handler registered using manually defined endpoint")
-	return nil
+	return &discordProvider{handler: o}, nil
 }
