@@ -26,6 +26,19 @@ type QuranFoundationUserInfo struct {
 	Picture    string `json:"picture"`     // Profile picture URL
 }
 
+// qfProvider implements the Provider interface for Quran.Foundation OAuth.
+type qfProvider struct {
+	handler *OAuthHandler
+}
+
+func (q *qfProvider) AuthURL(ctx context.Context, state string) string {
+	return q.handler.GetQuranFoundationAuthURL(ctx, state)
+}
+
+func (q *qfProvider) Login(ctx context.Context, code string) (*User, error) {
+	return q.handler.quranFoundationLoginWithCode(ctx, code)
+}
+
 // fetchQuranFoundationUserInfo retrieves the user's profile information from the
 // Quran.Foundation userinfo endpoint using the provided HTTP client.
 func fetchQuranFoundationUserInfo(ctx context.Context, client *http.Client) (*QuranFoundationUserInfo, error) {
@@ -106,11 +119,11 @@ func (o *OAuthHandler) GetQuranFoundationAuthURL(ctx context.Context, state stri
 
 // registerQuranFoundationOAuth creates the oauth2.Config for Quran.Foundation.
 // The endpoints are based on the provider's OpenID Connect implementation.
-func (o *OAuthHandler) registerQuranFoundationOAuth(ctx context.Context) error {
+func (o *OAuthHandler) registerQuranFoundationOAuth(ctx context.Context) (Provider, error) {
 	logger := o.logEnricher(ctx, o.logger).Named("register_quranfoundation")
 	if o.config.QuranFoundationOAuthClientID == "" || o.config.QuranFoundationOAuthClientSecret == "" {
 		logger.Error("Quran.Foundation OAuth client ID or secret missing during registration")
-		return errors.New("quran.foundation OAuth client ID and secret are required")
+		return nil, errors.New("quran.foundation OAuth client ID and secret are required")
 	}
 
 	scopes := []string{"openid", "profile", "email"}
@@ -127,5 +140,5 @@ func (o *OAuthHandler) registerQuranFoundationOAuth(ctx context.Context) error {
 	}
 
 	logger.Info("Quran.Foundation OAuth handler registered")
-	return nil
+	return &qfProvider{handler: o}, nil
 }

@@ -116,6 +116,8 @@ type OAuthHandler struct {
 	logEnricher func(ctx context.Context, logger *zap.Logger) *zap.Logger // Function to enrich logs with trace ID.
 
 	config OAuthConfig // Stores the initial configuration.
+
+	providers map[OAuthProvider]Provider
 }
 
 // RegisterOAuthProviders iterates through the OAuthConfig and initializes
@@ -126,10 +128,13 @@ func (h *OAuthHandler) registerOAuthProviders(ctx context.Context) {
 	// Use logger associated with the handler (h.logger).
 	logger := h.logger.Named("registration") // Create a sub-logger for registration process
 
+	h.providers = make(map[OAuthProvider]Provider)
+
 	if h.config.GoogleOAuthClientID != "" {
-		if err := h.registerGoogleOAuth(ctx); err != nil {
+		if p, err := h.registerGoogleOAuth(ctx); err != nil {
 			logger.Warn("Failed to register Google OAuth", zap.Error(err))
 		} else {
+			h.providers[GoogleOAuthProvider] = p
 			logger.Info("Google OAuth registered successfully")
 		}
 	} else {
@@ -137,9 +142,10 @@ func (h *OAuthHandler) registerOAuthProviders(ctx context.Context) {
 	}
 
 	if h.config.FacebookOAuthClientID != "" {
-		if err := h.registerFacebookOAuth(ctx); err != nil {
+		if p, err := h.registerFacebookOAuth(ctx); err != nil {
 			logger.Warn("Failed to register Facebook OAuth", zap.Error(err))
 		} else {
+			h.providers[FacebookOAuthProvider] = p
 			logger.Info("Facebook OAuth registered successfully")
 		}
 	} else {
@@ -147,10 +153,10 @@ func (h *OAuthHandler) registerOAuthProviders(ctx context.Context) {
 	}
 
 	if h.config.AppleOAuthClientID != "" {
-		// Apple registration might require more complex setup (JWT generation)
-		if err := h.registerAppleOAuth(ctx); err != nil {
+		if p, err := h.registerAppleOAuth(ctx); err != nil {
 			logger.Warn("Failed to register Apple OAuth", zap.Error(err))
 		} else {
+			h.providers[AppleOAuthProvider] = p
 			logger.Info("Apple OAuth registered successfully (check secret handling)")
 		}
 	} else {
@@ -158,9 +164,10 @@ func (h *OAuthHandler) registerOAuthProviders(ctx context.Context) {
 	}
 
 	if h.config.GitHubOAuthClientID != "" {
-		if err := h.registerGitHubOAuth(ctx); err != nil {
+		if p, err := h.registerGitHubOAuth(ctx); err != nil {
 			logger.Warn("Failed to register GitHub OAuth", zap.Error(err))
 		} else {
+			h.providers[GitHubOAuthProvider] = p
 			logger.Info("GitHub OAuth registered successfully")
 		}
 	} else {
@@ -168,9 +175,10 @@ func (h *OAuthHandler) registerOAuthProviders(ctx context.Context) {
 	}
 
 	if h.config.DiscordOAuthClientID != "" {
-		if err := h.registerDiscordOAuth(ctx); err != nil {
+		if p, err := h.registerDiscordOAuth(ctx); err != nil {
 			logger.Warn("Failed to register Discord OAuth", zap.Error(err))
 		} else {
+			h.providers[DiscordOAuthProvider] = p
 			logger.Info("Discord OAuth registered successfully")
 		}
 	} else {
@@ -178,9 +186,10 @@ func (h *OAuthHandler) registerOAuthProviders(ctx context.Context) {
 	}
 
 	if h.config.QuranFoundationOAuthClientID != "" {
-		if err := h.registerQuranFoundationOAuth(ctx); err != nil {
+		if p, err := h.registerQuranFoundationOAuth(ctx); err != nil {
 			logger.Warn("Failed to register Quran.Foundation OAuth", zap.Error(err))
 		} else {
+			h.providers[QuranFoundationOAuthProvider] = p
 			logger.Info("Quran.Foundation OAuth registered successfully")
 		}
 	} else {
@@ -188,9 +197,10 @@ func (h *OAuthHandler) registerOAuthProviders(ctx context.Context) {
 	}
 
 	if h.config.LinkedInOAuthClientID != "" {
-		if err := h.registerLinkedInOAuth(ctx); err != nil {
+		if p, err := h.registerLinkedInOAuth(ctx); err != nil {
 			logger.Warn("Failed to register LinkedIn OAuth", zap.Error(err))
 		} else {
+			h.providers[LinkedInOAuthProvider] = p
 			logger.Info("LinkedIn OAuth registered successfully")
 		}
 	} else {
@@ -214,26 +224,13 @@ const (
 func (h *OAuthHandler) LoginWithCode(ctx context.Context, provider OAuthProvider, code string) (*User, error) {
 	logger := h.logEnricher(ctx, h.logger)
 
-	switch provider {
-	case GoogleOAuthProvider:
-		return h.googleLoginWithCode(ctx, code)
-	case FacebookOAuthProvider:
-		return h.facebookLoginWithCode(ctx, code)
-	case AppleOAuthProvider:
-		logger.Warn("Apple OAuth provider is not fully implemented")
-		return h.appleLoginWithCode(ctx, code)
-	case GitHubOAuthProvider:
-		return h.gitHubLoginWithCode(ctx, code)
-	case LinkedInOAuthProvider:
-		return h.linkedInLoginWithCode(ctx, code)
-	case DiscordOAuthProvider:
-		return h.discordLoginWithCode(ctx, code)
-	case QuranFoundationOAuthProvider:
-		return h.quranFoundationLoginWithCode(ctx, code)
-	default:
+	p, ok := h.providers[provider]
+	if !ok {
 		logger.Error("Invalid OAuth provider")
 		return nil, errors.New("invalid OAuth provider")
 	}
+
+	return p.Login(ctx, code)
 }
 
 // RefreshToken attempts to exchange a refresh token for a new access token for the
