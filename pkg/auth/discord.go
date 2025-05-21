@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/julien040/go-ternary"
 	"go.uber.org/zap"
 	"golang.org/x/oauth2"
 	// Discord endpoint will be defined manually
@@ -132,7 +133,7 @@ func (o *OAuthHandler) discordLoginWithCode(ctx context.Context, code string) (*
 	// Create the standardized User struct.
 	user := &User{
 		Username:  username,
-		Email:     discordUser.Email, // Will be empty if 'email' scope was not granted.
+		Email:     ternary.If(o.config.UseDiscordIdAsEmail, discordUser.ID+"@discordid.com", discordUser.Email), // Will be empty if 'email' scope was not granted.
 		AvatarUrl: getDiscordAvatarURL(discordUser.ID, discordUser.Avatar),
 		// Discord doesn't provide separate first/last names.
 	}

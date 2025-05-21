@@ -82,6 +82,7 @@ type OAuthConfig struct {
 	DiscordOAuthClientID     string
 	DiscordOAuthClientSecret string
 	DiscordOAuthRedirectURL  string
+	UseDiscordIdAsEmail      bool // If true, use Discord ID as email
 
 	// Quran.Foundation OAuth Configuration
 	QuranFoundationOAuthClientID     string
