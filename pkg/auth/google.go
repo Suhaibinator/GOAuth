@@ -28,6 +28,19 @@ type GoogleUserInfo struct {
 	Locale        string `json:"locale"`         // The user's locale (e.g., "en").
 }
 
+// googleProvider implements the Provider interface for Google OAuth.
+type googleProvider struct {
+	handler *OAuthHandler
+}
+
+func (g *googleProvider) AuthURL(ctx context.Context, state string) string {
+	return g.handler.GetGoogleAuthURL(ctx, state)
+}
+
+func (g *googleProvider) Login(ctx context.Context, code string) (*User, error) {
+	return g.handler.googleLoginWithCode(ctx, code)
+}
+
 // googleLoginWithCode handles the final step of the Google OAuth flow.
 // It exchanges the authorization code received from the frontend for an access token,
 // fetches the user's profile information from Google's userinfo endpoint,
@@ -112,11 +125,11 @@ func (o *OAuthHandler) GetGoogleAuthURL(ctx context.Context, state string) strin
 // registerGoogleOAuth creates and stores the oauth2.Config for Google,
 // using the credentials provided in the main OAuthConfig.
 // It sets the standard "openid", "email", and "profile" scopes.
-func (o *OAuthHandler) registerGoogleOAuth(ctx context.Context) error {
+func (o *OAuthHandler) registerGoogleOAuth(ctx context.Context) (Provider, error) {
 	logger := o.logEnricher(ctx, o.logger).Named("register_google")
 	if o.config.GoogleOAuthClientID == "" || o.config.GoogleOAuthClientSecret == "" {
 		logger.Error("Google OAuth client ID or secret missing during registration")
-		return errors.New("google OAuth client ID and secret are required")
+		return nil, errors.New("google OAuth client ID and secret are required")
 	}
 
 	o.googleOAuthConfig = &oauth2.Config{
@@ -128,5 +141,5 @@ func (o *OAuthHandler) registerGoogleOAuth(ctx context.Context) error {
 	}
 
 	logger.Info("Google OAuth handler registered using golang.org/x/oauth2")
-	return nil
+	return &googleProvider{handler: o}, nil
 }

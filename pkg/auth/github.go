@@ -26,6 +26,19 @@ type GitHubUserInfo struct {
 	AvatarURL string `json:"avatar_url"` // URL of the user's avatar.
 }
 
+// githubProvider implements the Provider interface for GitHub OAuth.
+type githubProvider struct {
+	handler *OAuthHandler
+}
+
+func (g *githubProvider) AuthURL(ctx context.Context, state string) string {
+	return g.handler.GetGitHubAuthURL(ctx, state)
+}
+
+func (g *githubProvider) Login(ctx context.Context, code string) (*User, error) {
+	return g.handler.gitHubLoginWithCode(ctx, code)
+}
+
 // GitHubUserEmail represents an email address associated with a GitHub user,
 // returned by the `/user/emails` endpoint.
 // See: https://docs.github.com/en/rest/users/emails#list-email-addresses-for-the-authenticated-user
@@ -198,11 +211,11 @@ func (o *OAuthHandler) GetGitHubAuthURL(ctx context.Context, state string) strin
 // registerGitHubOAuth creates and stores the oauth2.Config for GitHub,
 // using the credentials provided in the main OAuthConfig.
 // It sets the 'read:user' and 'user:email' scopes.
-func (o *OAuthHandler) registerGitHubOAuth(ctx context.Context) error {
+func (o *OAuthHandler) registerGitHubOAuth(ctx context.Context) (Provider, error) {
 	logger := o.logEnricher(ctx, o.logger).Named("register_github")
 	if o.config.GitHubOAuthClientID == "" || o.config.GitHubOAuthClientSecret == "" {
 		logger.Error("GitHub OAuth client ID or secret missing during registration")
-		return errors.New("github OAuth client ID and secret are required")
+		return nil, errors.New("github OAuth client ID and secret are required")
 	}
 
 	o.githubOAuthConfig = &oauth2.Config{
@@ -214,5 +227,5 @@ func (o *OAuthHandler) registerGitHubOAuth(ctx context.Context) error {
 	}
 
 	logger.Info("GitHub OAuth handler registered using golang.org/x/oauth2")
-	return nil
+	return &githubProvider{handler: o}, nil
 }

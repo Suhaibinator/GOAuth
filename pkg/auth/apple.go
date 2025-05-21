@@ -12,22 +12,66 @@ import (
 	"strings"
 	"time"
 
+	"crypto/ecdsa"
+	"crypto/rand"
+	"crypto/sha256"
+	"crypto/x509"
+	"encoding/pem"
+
 	"go.uber.org/zap"
+	"golang.org/x/oauth2"
 )
 
 // ===== Sign in with Apple =====
-// Note: This is a simplified implementation based on a standard OAuth code exchange.
-// A production-ready implementation MUST handle JWT client secret generation and
-// ID token verification using Apple's public keys.
+// This implementation generates the required client secret JWT and exchanges
+// the authorization code for tokens. ID token validation should still be
+// performed by callers if needed.
 
-// AppleOauthHandler handles the simplified OAuth operations for Apple.
-// WARNING: This handler assumes a static ClientSecret, which is incorrect for Apple.
-// Apple requires a dynamically generated JWT as the client secret.
+// AppleOauthHandler handles OAuth operations for Sign in with Apple.
+// It uses a JWT signed with your private key as the client secret.
 type AppleOauthHandler struct {
-	ClientID     string
-	ClientSecret string // WARNING: This should be parameters for JWT generation (TeamID, KeyID, PrivateKey)
-	RedirectURL  string
-	HTTPClient   *http.Client
+	ClientID    string
+	TeamID      string
+	KeyID       string
+	PrivateKey  *ecdsa.PrivateKey
+	RedirectURL string
+	HTTPClient  *http.Client
+}
+
+// appleProvider implements the Provider interface for Sign in with Apple.
+type appleProvider struct {
+	handler *OAuthHandler
+}
+
+func (a *appleProvider) AuthURL(ctx context.Context, state string) string {
+	return a.handler.GetAppleAuthURL(ctx, state)
+}
+
+func (a *appleProvider) Login(ctx context.Context, code string) (*User, error) {
+	return a.handler.appleLoginWithCode(ctx, code)
+}
+
+// generateClientSecret creates the JWT client secret required by Apple.
+func (a *AppleOauthHandler) generateClientSecret() (string, error) {
+	now := time.Now()
+	header := base64.RawURLEncoding.EncodeToString([]byte(fmt.Sprintf(`{"alg":"ES256","kid":"%s"}`, a.KeyID)))
+	payload := fmt.Sprintf(`{"iss":"%s","iat":%d,"exp":%d,"aud":"https://appleid.apple.com","sub":"%s"}`,
+		a.TeamID, now.Unix(), now.Add(5*time.Minute).Unix(), a.ClientID)
+	payloadEnc := base64.RawURLEncoding.EncodeToString([]byte(payload))
+	signingInput := header + "." + payloadEnc
+	h := sha256.Sum256([]byte(signingInput))
+	r, s, err := ecdsa.Sign(rand.Reader, a.PrivateKey, h[:])
+	if err != nil {
+		return "", err
+	}
+	// Convert r,s to byte array as per JOSE encoding
+	curveBits := a.PrivateKey.Curve.Params().BitSize
+	keyBytes := curveBits / 8
+	sig := make([]byte, keyBytes*2)
+	r.FillBytes(sig[0:keyBytes])
+	s.FillBytes(sig[keyBytes:])
+	signature := base64.RawURLEncoding.EncodeToString(sig)
+	return signingInput + "." + signature, nil
 }
 
 // AppleTokenResponse represents the expected response from Apple's token endpoint `/auth/token`.
@@ -51,26 +95,38 @@ type AppleUserInfo struct {
 // NewAppleOauthHandler creates a new AppleOauthHandler with the provided (simplified) configuration.
 // WARNING: The clientSecret parameter is handled incorrectly here for Apple's flow.
 // A proper implementation needs TeamID, KeyID, and PrivateKey.
-func NewAppleOauthHandler(clientID, clientSecret, redirectURL string) *AppleOauthHandler {
-	return &AppleOauthHandler{
-		ClientID:     clientID,
-		ClientSecret: clientSecret, // Incorrect usage for Apple
-		RedirectURL:  redirectURL,
-		HTTPClient: &http.Client{
-			Timeout: 10 * time.Second,
-		},
+// NewAppleOauthHandler creates a new AppleOauthHandler using the provided credentials.
+// privateKeyPEM should contain the contents of your `.p8` key.
+func NewAppleOauthHandler(clientID, teamID, keyID, privateKeyPEM, redirectURL string) (*AppleOauthHandler, error) {
+	block, _ := pem.Decode([]byte(privateKeyPEM))
+	if block == nil {
+		return nil, fmt.Errorf("failed to decode apple private key pem")
 	}
+	key, err := x509.ParseECPrivateKey(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("invalid apple private key: %w", err)
+	}
+	return &AppleOauthHandler{
+		ClientID:    clientID,
+		TeamID:      teamID,
+		KeyID:       keyID,
+		PrivateKey:  key,
+		RedirectURL: redirectURL,
+		HTTPClient:  &http.Client{Timeout: 10 * time.Second},
+	}, nil
 }
 
 // Exchange attempts to exchange an authorization code for tokens at Apple's token endpoint.
-// WARNING: This function uses a static ClientSecret, which WILL NOT WORK with Apple.
-// It needs to generate a client secret JWT dynamically using the TeamID, KeyID, ClientID, and PrivateKey.
 func (a *AppleOauthHandler) Exchange(code string) (*AppleTokenResponse, error) {
+	clientSecret, err := a.generateClientSecret()
+	if err != nil {
+		return nil, err
+	}
+
 	data := url.Values{}
 	data.Set("code", code)
 	data.Set("client_id", a.ClientID)
-	// CRITICAL FLAW: Apple requires a dynamically generated JWT here, not a static secret.
-	data.Set("client_secret", a.ClientSecret)
+	data.Set("client_secret", clientSecret)
 	data.Set("redirect_uri", a.RedirectURL)
 	data.Set("grant_type", "authorization_code")
 
@@ -217,25 +273,74 @@ func (o *OAuthHandler) GetAppleAuthURL(ctx context.Context, state string) string
 	return o.appleOauthHandler.GetAuthURL(state)
 }
 
-// registerAppleOAuth initializes the simplified (and insecure) Apple OAuth handler.
-// WARNING: This function incorrectly uses AppleOAuthClientSecret. A proper implementation
-// requires TeamID, KeyID, and PrivateKey details from the OAuthConfig struct to be passed
-// to a modified NewAppleOauthHandler capable of JWT generation.
-func (o *OAuthHandler) registerAppleOAuth(ctx context.Context) error {
+// registerAppleOAuth initializes the Apple OAuth handler using the configuration values.
+func (o *OAuthHandler) registerAppleOAuth(ctx context.Context) (Provider, error) {
 	logger := o.logEnricher(ctx, o.logger).Named("register_apple")
-	if o.config.AppleOAuthClientID == "" || o.config.AppleOAuthClientSecret == "" {
-		// This check is misleading as AppleOAuthClientSecret shouldn't be a static secret.
-		logger.Error("Apple OAuth configuration incomplete (ClientID and Secret/Key details needed)")
-		return errors.New("apple OAuth client ID and secret generation details are required")
+	if o.config.AppleOAuthClientID == "" || o.config.AppleOAuthTeamID == "" ||
+		o.config.AppleOAuthKeyID == "" || o.config.AppleOAuthPrivateKey == "" {
+		logger.Error("Apple OAuth configuration incomplete")
+		return nil, errors.New("apple OAuth requires client id, team id, key id and private key")
 	}
 
-	// Create the handler using the flawed NewAppleOauthHandler.
-	o.appleOauthHandler = NewAppleOauthHandler(
+	handler, err := NewAppleOauthHandler(
 		o.config.AppleOAuthClientID,
-		o.config.AppleOAuthClientSecret, // Passing potentially incorrect secret parameter.
+		o.config.AppleOAuthTeamID,
+		o.config.AppleOAuthKeyID,
+		o.config.AppleOAuthPrivateKey,
 		o.config.AppleOAuthRedirectURL,
 	)
+       if err != nil {
+               logger.Error("failed to create apple handler", zap.Error(err))
+               return nil, err
+       }
+	o.appleOauthHandler = handler
+	logger.Info("Apple OAuth handler registered")
+	return &appleProvider{handler: o}, nil
+}
 
-	logger.Warn("Apple OAuth handler registered with simplified/insecure implementation. Requires JWT handling.")
-	return nil
+// Refresh exchanges a refresh token for a new access token using Apple's token endpoint.
+func (a *AppleOauthHandler) Refresh(ctx context.Context, refreshToken string) (*oauth2.Token, error) {
+	if refreshToken == "" {
+		return nil, errors.New("refresh token is empty")
+	}
+
+	clientSecret, err := a.generateClientSecret()
+	if err != nil {
+		return nil, err
+	}
+
+	data := url.Values{}
+	data.Set("client_id", a.ClientID)
+	data.Set("client_secret", clientSecret)
+	data.Set("grant_type", "refresh_token")
+	data.Set("refresh_token", refreshToken)
+
+	req, err := http.NewRequestWithContext(ctx, "POST", "https://appleid.apple.com/auth/token", strings.NewReader(data.Encode()))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := a.HTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to refresh token: %s, status: %d", string(body), resp.StatusCode)
+	}
+
+	var tokenResp AppleTokenResponse
+	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
+		return nil, err
+	}
+
+	return &oauth2.Token{
+		AccessToken:  tokenResp.AccessToken,
+		TokenType:    tokenResp.TokenType,
+		RefreshToken: tokenResp.RefreshToken,
+		Expiry:       time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second),
+	}, nil
 }
