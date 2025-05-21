@@ -14,6 +14,11 @@ import (
 	// Discord endpoint will be defined manually
 )
 
+// ErrDiscordEmailEmpty is returned when the Discord user's email is empty,
+// which might happen if the 'email' scope was not requested or granted,
+// or if the user does not have a primary email set on their Discord account.
+var ErrDiscordEmailEmpty = errors.New("discord user email is empty, 'email' scope may be missing or not granted")
+
 // ===== Discord OAuth =====
 
 // DiscordUserInfo represents the user information returned by the Discord API endpoint `/users/@me`.
@@ -74,13 +79,11 @@ func fetchDiscordUserInfo(ctx context.Context, client *http.Client) (*DiscordUse
 	return &userInfo, nil
 }
 
-// discordLoginWithCode handles the final step of the Discord OAuth flow.
-// It exchanges the authorization code for an access token, fetches the user's profile
-// information from the Discord API, and maps it to the standardized User struct.
-// Requires 'identify' and optionally 'email' scopes.
-// Returns ErrFailedToExchangeCode or ErrFailedToGetUserInfo on failure.
-func (o *OAuthHandler) discordLoginWithCode(ctx context.Context, code string) (*User, error) {
-	logger := o.logEnricher(ctx, o.logger).Named("discord_login")
+// _discordLoginCore is a helper function that handles the common logic for Discord OAuth flows.
+// It exchanges the code for a token, fetches user info, and constructs a User struct.
+// The getEmailFunc parameter allows customization of how the email is derived from DiscordUserInfo.
+func (o *OAuthHandler) _discordLoginCore(ctx context.Context, code string, getEmailFunc func(logger *zap.Logger, userInfo *DiscordUserInfo) (string, error)) (*User, error) {
+	logger := o.logEnricher(ctx, o.logger).Named("discord_login_core")
 
 	if o.discordOAuthConfig == nil {
 		logger.Error("Discord OAuth config not initialized")
@@ -116,16 +119,45 @@ func (o *OAuthHandler) discordLoginWithCode(ctx context.Context, code string) (*
 		username = discordUser.Username // Fallback to the older username if GlobalName isn't set.
 	}
 
+	email, err := getEmailFunc(logger, discordUser)
+	if err != nil {
+		// The getEmailFunc is responsible for logging specific reasons for the error.
+		return nil, err
+	}
+
 	// Create the standardized User struct.
 	user := &User{
 		Username:  username,
-		Email:     discordUser.Email, // Will be empty if 'email' scope was not granted.
+		Email:     email, // Use the email from getEmailFunc
 		AvatarUrl: getDiscordAvatarURL(discordUser.ID, discordUser.Avatar),
 		// Discord doesn't provide separate first/last names.
 	}
 
 	logger.Info("Discord login successful", zap.String("discord_id", discordUser.ID), zap.String("discord_username", user.Username), zap.String("email", user.Email))
 	return user, nil
+}
+
+// discordLoginWithCode handles the final step of the Discord OAuth flow.
+// It exchanges the authorization code for an access token, fetches the user's profile
+// information from the Discord API, and maps it to the standardized User struct.
+// Requires 'identify' and optionally 'email' scopes.
+// Returns ErrFailedToExchangeCode, ErrFailedToGetUserInfo, or ErrDiscordEmailEmpty on failure.
+func (o *OAuthHandler) discordLoginWithCode(ctx context.Context, code string) (*User, error) {
+	return o._discordLoginCore(ctx, code, func(logger *zap.Logger, userInfo *DiscordUserInfo) (string, error) {
+		if userInfo.Email == "" {
+			logger.Error("Discord user email is empty. The 'email' scope might be missing, not granted by the user, or the user may not have a primary email set on their Discord account.",
+				zap.String("discord_id", userInfo.ID))
+			return "", ErrDiscordEmailEmpty
+		}
+		return userInfo.Email, nil
+	})
+}
+
+func (o *OAuthHandler) discordIdLoginWithCode(ctx context.Context, code string) (*User, error) {
+	return o._discordLoginCore(ctx, code, func(logger *zap.Logger, userInfo *DiscordUserInfo) (string, error) {
+		// This flow constructs an email from the ID, so it doesn't depend on userInfo.Email
+		return userInfo.ID + "@discordid.com", nil
+	})
 }
 
 // GetDiscordAuthURL generates the URL to redirect the user to for Discord authentication.

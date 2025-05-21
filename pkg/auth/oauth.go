@@ -187,6 +187,7 @@ const (
 	GitHubOAuthProvider
 	LinkedInOAuthProvider
 	DiscordOAuthProvider
+	DiscordIdOAuthProvider
 )
 
 func (h *OAuthHandler) LoginWithCode(ctx context.Context, provider OAuthProvider, code string) (*User, error) {
@@ -206,6 +207,8 @@ func (h *OAuthHandler) LoginWithCode(ctx context.Context, provider OAuthProvider
 		return h.linkedInLoginWithCode(ctx, code)
 	case DiscordOAuthProvider:
 		return h.discordLoginWithCode(ctx, code)
+	case DiscordIdOAuthProvider:
+		return h.discordIdLoginWithCode(ctx, code)
 	default:
 		logger.Error("Invalid OAuth provider")
 		return nil, errors.New("invalid OAuth provider")
