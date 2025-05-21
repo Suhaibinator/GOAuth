@@ -27,16 +27,6 @@ const (
 	quranClientSecret  = "YOUR_QURANFOUNDATION_CLIENT_SECRET"
 	// Add other provider credentials as needed
 	redirectURIBase = "http://localhost:8080/callback/" // Base URL for callbacks
-	traceIDKey      = "X-Request-ID"                    // Example context key for trace ID (used for header)
-)
-
-// Custom type for context keys to avoid collisions
-type contextKey string
-
-const (
-	// Use a custom type for the context key to avoid collisions.
-	// The original traceIDKey (string) is still used for the HTTP header.
-	traceIDContextKey = contextKey(traceIDKey)
 )
 
 // -------------------------------------------------------------------------------------
@@ -67,8 +57,6 @@ func main() {
 
 		// Add configurations for other providers (Facebook, Discord, LinkedIn, Apple) here
 		// Ensure Redirect URLs match the callback handlers below
-
-		TraceIdKey: traceIDKey,
 	}
 
 	oauthHandler = auth.NewOAuthHandler(logger.Named("GOAuth"), func(ctx context.Context, logger *zap.Logger) *zap.Logger {
@@ -99,7 +87,7 @@ func main() {
 	// Add callback routes for other providers...
 
 	// Middleware for logging and trace ID (basic example)
-	loggedMux := loggingMiddleware(traceIDMiddleware(mux))
+	loggedMux := loggingMiddleware(mux)
 
 	server := &http.Server{
 		Addr:         ":8080",
@@ -277,21 +265,6 @@ func handleCallbackQuran(w http.ResponseWriter, r *http.Request) {
 
 // --- Middleware ---
 
-// traceIDMiddleware adds a unique trace ID to the request context.
-func traceIDMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		traceID := r.Header.Get(traceIDKey)
-		if traceID == "" {
-			traceID = uuid.NewString()
-		}
-		// Add traceID to context using the custom key type
-		ctx := context.WithValue(r.Context(), traceIDContextKey, traceID)
-		// Set traceID in response header (using the original string key)
-		w.Header().Set(traceIDKey, traceID)
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
-}
-
 // loggingMiddleware logs request details.
 func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -304,7 +277,7 @@ func loggingMiddleware(next http.Handler) http.Handler {
 			zap.String("remote_addr", r.RemoteAddr),
 			zap.Duration("duration", time.Since(start)),
 			// Retrieve traceID from context using the custom key type
-			zap.String("trace_id", r.Context().Value(traceIDContextKey).(string)), // Assumes traceIDMiddleware runs first
+			// Assumes traceIDMiddleware runs first
 		)
 	})
 }

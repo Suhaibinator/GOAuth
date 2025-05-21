@@ -48,49 +48,43 @@ func NewOAuthHandler(
 // Client ID, Client Secret, and Redirect URL must be provided for each enabled provider.
 type OAuthConfig struct {
 	// Google OAuth Configuration
-	GoogleOAuthClientID     string
-	GoogleOAuthClientSecret string
-	GoogleOAuthRedirectURL  string
+	GoogleOAuthClientID     string `json:"google_oauth_client_id" yaml:"google_oauth_client_id" toml:"google_oauth_client_id"`
+	GoogleOAuthClientSecret string `json:"google_oauth_client_secret" yaml:"google_oauth_client_secret" toml:"google_oauth_client_secret"`
+	GoogleOAuthRedirectURL  string `json:"google_oauth_redirect_url" yaml:"google_oauth_redirect_url" toml:"google_oauth_redirect_url"`
 
 	// Facebook OAuth Configuration
-
-	FacebookOAuthClientID     string
-	FacebookOAuthClientSecret string
-	FacebookOAuthRedirectURL  string
+	FacebookOAuthClientID     string `json:"facebook_oauth_client_id" yaml:"facebook_oauth_client_id" toml:"facebook_oauth_client_id"`
+	FacebookOAuthClientSecret string `json:"facebook_oauth_client_secret" yaml:"facebook_oauth_client_secret" toml:"facebook_oauth_client_secret"`
+	FacebookOAuthRedirectURL  string `json:"facebook_oauth_redirect_url" yaml:"facebook_oauth_redirect_url" toml:"facebook_oauth_redirect_url"`
 
 	// Apple Sign In Configuration
 	// Requires team ID, key ID and the private key used to sign the client secret JWT
-	AppleOAuthClientID    string
-	AppleOAuthTeamID      string
-	AppleOAuthKeyID       string
-	AppleOAuthPrivateKey  string // PEM encoded private key or path to .p8 file
-	AppleOAuthRedirectURL string
+	AppleOAuthClientID    string `json:"apple_oauth_client_id" yaml:"apple_oauth_client_id" toml:"apple_oauth_client_id"`
+	AppleOAuthTeamID      string `json:"apple_oauth_team_id" yaml:"apple_oauth_team_id" toml:"apple_oauth_team_id"`
+	AppleOAuthKeyID       string `json:"apple_oauth_key_id" yaml:"apple_oauth_key_id" toml:"apple_oauth_key_id"`
+	AppleOAuthPrivateKey  string `json:"apple_oauth_private_key" yaml:"apple_oauth_private_key" toml:"apple_oauth_private_key"` // PEM encoded private key or path to .p8 file
+	AppleOAuthRedirectURL string `json:"apple_oauth_redirect_url" yaml:"apple_oauth_redirect_url" toml:"apple_oauth_redirect_url"`
 
 	// GitHub OAuth Configuration
-
-	GitHubOAuthClientID     string
-	GitHubOAuthClientSecret string
-	GitHubOAuthRedirectURL  string
+	GitHubOAuthClientID     string `json:"github_oauth_client_id" yaml:"github_oauth_client_id" toml:"github_oauth_client_id"`
+	GitHubOAuthClientSecret string `json:"github_oauth_client_secret" yaml:"github_oauth_client_secret" toml:"github_oauth_client_secret"`
+	GitHubOAuthRedirectURL  string `json:"github_oauth_redirect_url" yaml:"github_oauth_redirect_url" toml:"github_oauth_redirect_url"`
 
 	// LinkedIn OAuth Configuration
-	LinkedInOAuthClientID     string
-	LinkedInOAuthClientSecret string
-	LinkedInOAuthRedirectURL  string
+	LinkedInOAuthClientID     string `json:"linkedin_oauth_client_id" yaml:"linkedin_oauth_client_id" toml:"linkedin_oauth_client_id"`
+	LinkedInOAuthClientSecret string `json:"linkedin_oauth_client_secret" yaml:"linkedin_oauth_client_secret" toml:"linkedin_oauth_client_secret"`
+	LinkedInOAuthRedirectURL  string `json:"linkedin_oauth_redirect_url" yaml:"linkedin_oauth_redirect_url" toml:"linkedin_oauth_redirect_url"`
 
 	// Discord OAuth Configuration
-
-	DiscordOAuthClientID     string
-	DiscordOAuthClientSecret string
-	DiscordOAuthRedirectURL  string
-	UseDiscordIdAsEmail      bool // If true, use Discord ID as email
+	DiscordOAuthClientID     string `json:"discord_oauth_client_id" yaml:"discord_oauth_client_id" toml:"discord_oauth_client_id"`
+	DiscordOAuthClientSecret string `json:"discord_oauth_client_secret" yaml:"discord_oauth_client_secret" toml:"discord_oauth_client_secret"`
+	DiscordOAuthRedirectURL  string `json:"discord_oauth_redirect_url" yaml:"discord_oauth_redirect_url" toml:"discord_oauth_redirect_url"`
+	UseDiscordIdAsEmail      bool   `json:"use_discord_id_as_email" yaml:"use_discord_id_as_email" toml:"use_discord_id_as_email"` // If true, use Discord ID as email
 
 	// Quran.Foundation OAuth Configuration
-	QuranFoundationOAuthClientID     string
-	QuranFoundationOAuthClientSecret string
-	QuranFoundationOAuthRedirectURL  string
-
-	// TraceIdKey is the key used to extract the trace ID from the context for logging.
-	TraceIdKey string
+	QuranFoundationOAuthClientID     string `json:"quran_foundation_oauth_client_id" yaml:"quran_foundation_oauth_client_id" toml:"quran_foundation_oauth_client_id"`
+	QuranFoundationOAuthClientSecret string `json:"quran_foundation_oauth_client_secret" yaml:"quran_foundation_oauth_client_secret" toml:"quran_foundation_oauth_client_secret"`
+	QuranFoundationOAuthRedirectURL  string `json:"quran_foundation_oauth_redirect_url" yaml:"quran_foundation_oauth_redirect_url" toml:"quran_foundation_oauth_redirect_url"`
 }
 
 // Predefined errors related to the OAuth process.
