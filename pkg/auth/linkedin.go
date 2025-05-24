@@ -249,8 +249,8 @@ func (o *OAuthHandler) linkedInLoginWithCode(ctx context.Context, code string) (
 
 	// Create a standardized User from the LinkedIn user info
 	user := &User{
-		// LinkedIn doesn't provide a single 'username'. Use ID or name combination.
-		Username:  linkedInUser.ID, // Using LinkedIn ID as a unique identifier
+		// Use full name as username to maintain consistency with other providers
+		Username:  linkedInUser.LocalizedFirstName + " " + linkedInUser.LocalizedLastName,
 		Email:     email,
 		AvatarUrl: avatarURL,
 		FirstName: linkedInUser.LocalizedFirstName,

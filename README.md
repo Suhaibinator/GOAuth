@@ -95,6 +95,36 @@ func main() {
 
 ```
 
+## User Data Structure
+
+GOAuth normalizes user data from all providers into a common `User` struct:
+
+```go
+type User struct {
+    Username  string  // Display name or full name (see note below)
+    Email     string  // User's email address
+    AvatarUrl string  // Profile picture URL
+    FirstName string  // First/given name
+    LastName  string  // Last/family name
+}
+```
+
+### Username Field Behavior
+
+The `Username` field contains human-readable names, but the exact content varies by provider:
+
+| Provider | Username Contains | Example |
+|----------|------------------|---------|
+| Google | Full name | "John Doe" |
+| GitHub | Display name (falls back to GitHub username) | "John Doe" or "johndoe" |
+| Discord | Global display name (falls back to username) | "John" or "john#1234" |
+| LinkedIn | Full name (First + Last) | "John Doe" |
+| Facebook | Full name | "John Doe" |
+| Apple | Full name (only available on first sign-in) | "John Doe" or "Apple User" |
+| Quran.Foundation | Full name | "John Doe" |
+
+**Note:** The `Username` field does NOT contain unique provider IDs. If you need to store a unique identifier for the user, you should generate one based on the provider and email combination, or maintain a separate mapping in your application.
+
 ## Improvements & Future Work
 
 *   **Apple Sign In:** Add full ID token validation using Apple's public keys.
