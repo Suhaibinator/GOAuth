@@ -33,9 +33,33 @@ This package aims to provide a consistent interface for handling OAuth 2.0 authe
 go get github.com/Suhaibinator/GOAuth
 ```
 
+## Quick Start
+
+This project requires **Go 1.24** or newer. The example server demonstrates how to integrate GOAuth with a web application.
+
+```bash
+# build all packages
+go build -v ./...
+
+# run the example server
+go run examples/simple_server/main.go
+```
+
+The example reads provider credentials from environment variables. Before running, export values similar to the following:
+
+```bash
+export GOOGLE_CLIENT_ID="your-google-client-id"
+export GOOGLE_CLIENT_SECRET="your-google-client-secret"
+export GITHUB_CLIENT_ID="your-github-client-id"
+export GITHUB_CLIENT_SECRET="your-github-client-secret"
+# ...other provider variables...
+```
+
+Then visit `http://localhost:8080` to try the login flows.
+
 ## Basic Usage
 
-See the example server in `examples/simple_server/main.go` for a demonstration of how to initialize the handler and set up login/callback routes.
+See the example server in `examples/simple_server/main.go` for a complete demonstration of how to initialize the handler and set up login/callback routes.
 
 ```go
 package main
@@ -135,6 +159,19 @@ The `Username` field contains human-readable names, but the exact content varies
 *   **More Providers:** Add support for other popular OAuth providers.
 *   **Configuration:** Improve configuration loading (e.g., from environment variables or config files).
 
+## Security Considerations
+
+The example code is intentionally simple and omits several production safety measures:
+
+* **CSRF protection**: The example generates a state value but does not persist or verify it. Ensure you store the state and validate it on callbacks to prevent cross-site request forgery.
+* **Apple ID token validation**: The library generates Apple client secrets but does not verify the returned ID token. Applications must validate the ID token using Apple's public keys before trusting user data.
+* **Session management**: The example prints user information directly. In a real application you should create a session and manage cookies securely.
+
 ## Contributing
 
-Contributions are welcome! Please feel free to submit issues or pull requests.
+Contributions are welcome! To get started:
+
+1. Format your code with `go fmt ./...` and run `go vet ./...`.
+2. Ensure the project builds with `go build -v ./...`.
+3. Although tests are currently missing, add unit tests for any new functionality and run `go test -v ./...`.
+4. Open a pull request describing your changes.
