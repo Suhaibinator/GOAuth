@@ -101,6 +101,8 @@ var (
 	ErrFailedToGetUserInfo = errors.New("failed to get user info")
 	// ErrFailedToExchangeCode indicates an error occurred during the token exchange process.
 	ErrFailedToExchangeCode = errors.New("failed to exchange code for token")
+	// ErrInvalidToken indicates that the received token is invalid or malformed.
+	ErrInvalidToken = errors.New("invalid token received")
 )
 
 // OAuthHandler manages the configuration and logic for multiple OAuth providers.
@@ -112,7 +114,7 @@ type OAuthHandler struct {
 	linkedInOAuthConfig        *oauth2.Config     // Configuration for LinkedIn OAuth.
 	discordOAuthConfig         *oauth2.Config     // Configuration for Discord OAuth.
 	quranFoundationOAuthConfig *oauth2.Config
-	oktaOAuthConfig            *oauth2.Config     // Configuration for Okta OAuth.
+	oktaOAuthConfig            *oauth2.Config // Configuration for Okta OAuth.
 	// Configuration for Quran.Foundation OAuth.
 	logger      *zap.Logger                                               // Shared logger instance.
 	logEnricher func(ctx context.Context, logger *zap.Logger) *zap.Logger // Function to enrich logs with trace ID.
