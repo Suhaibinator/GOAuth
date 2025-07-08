@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
-GOAuth is a Go package that provides OAuth 2.0 handlers for social login providers (Google, GitHub, Discord, LinkedIn, Facebook, Apple, Quran.Foundation). It abstracts OAuth flow complexity behind a consistent interface.
+GOAuth is a Go package that provides OAuth 2.0 handlers for social login providers (Google, GitHub, Discord, LinkedIn, Facebook, Apple, Quran.Foundation, Okta). It abstracts OAuth flow complexity behind a consistent interface.
 
 ## Commands
 - **Build**: `go build -v ./...`

@@ -26,6 +26,7 @@ This package aims to provide a consistent interface for handling OAuth 2.0 authe
 *   LinkedIn
 *   Facebook
 *   Apple
+*   Okta
 
 ## Installation
 
@@ -52,6 +53,9 @@ export GOOGLE_CLIENT_ID="your-google-client-id"
 export GOOGLE_CLIENT_SECRET="your-google-client-secret"
 export GITHUB_CLIENT_ID="your-github-client-id"
 export GITHUB_CLIENT_SECRET="your-github-client-secret"
+export OKTA_CLIENT_ID="your-okta-client-id"
+export OKTA_CLIENT_SECRET="your-okta-client-secret"
+export OKTA_DOMAIN="your-okta-domain.okta.com"
 # ...other provider variables...
 ```
 
@@ -93,6 +97,12 @@ func main() {
                 AppleOAuthKeyID:      "YOUR_KEY_ID",
                 AppleOAuthPrivateKey: "-----BEGIN PRIVATE KEY-----...",
                 AppleOAuthRedirectURL: "http://localhost:8080/callback/apple",
+
+                // Okta credentials
+                OktaOAuthClientID:     "YOUR_OKTA_CLIENT_ID",
+                OktaOAuthClientSecret: "YOUR_OKTA_CLIENT_SECRET",
+                OktaOAuthRedirectURL:  "http://localhost:8080/callback/okta",
+                OktaOAuthDomain:       "your-domain.okta.com",
 
                 // ... configure other providers ...
 
@@ -146,6 +156,7 @@ The `Username` field contains human-readable names, but the exact content varies
 | Facebook | Full name | "John Doe" |
 | Apple | Full name (only available on first sign-in) | "John Doe" or "Apple User" |
 | Quran.Foundation | Full name | "John Doe" |
+| Okta | Full name (falls back to preferred username) | "John Doe" or "john.doe" |
 
 **Note:** The `Username` field does NOT contain unique provider IDs. If you need to store a unique identifier for the user, you should generate one based on the provider and email combination, or maintain a separate mapping in your application.
 
