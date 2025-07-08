@@ -25,6 +25,9 @@ const (
 	githubClientSecret = "YOUR_GITHUB_CLIENT_SECRET"
 	quranClientID      = "YOUR_QURANFOUNDATION_CLIENT_ID"
 	quranClientSecret  = "YOUR_QURANFOUNDATION_CLIENT_SECRET"
+	oktaClientID       = "YOUR_OKTA_CLIENT_ID"
+	oktaClientSecret   = "YOUR_OKTA_CLIENT_SECRET"
+	oktaDomain         = "YOUR_OKTA_DOMAIN" // e.g., "dev-12345.okta.com"
 	// Add other provider credentials as needed
 	redirectURIBase = "http://localhost:8080/callback/" // Base URL for callbacks
 )
@@ -55,6 +58,11 @@ func main() {
 		QuranFoundationOAuthClientSecret: quranClientSecret,
 		QuranFoundationOAuthRedirectURL:  redirectURIBase + "quran",
 
+		OktaOAuthClientID:     oktaClientID,
+		OktaOAuthClientSecret: oktaClientSecret,
+		OktaOAuthRedirectURL:  redirectURIBase + "okta",
+		OktaOAuthDomain:       oktaDomain,
+
 		// Add configurations for other providers (Facebook, Discord, LinkedIn, Apple) here
 		// Ensure Redirect URLs match the callback handlers below
 	}
@@ -78,12 +86,14 @@ func main() {
 	mux.HandleFunc("/login/google", handleLoginGoogle)
 	mux.HandleFunc("/login/github", handleLoginGithub)
 	mux.HandleFunc("/login/quran", handleLoginQuran)
+	mux.HandleFunc("/login/okta", handleLoginOkta)
 	// Add login routes for other providers...
 
 	// Callback handling routes
 	mux.HandleFunc("/callback/google", handleCallbackGoogle)
 	mux.HandleFunc("/callback/github", handleCallbackGithub)
 	mux.HandleFunc("/callback/quran", handleCallbackQuran)
+	mux.HandleFunc("/callback/okta", handleCallbackOkta)
 	// Add callback routes for other providers...
 
 	// Middleware for logging and trace ID (basic example)
@@ -112,6 +122,7 @@ func handleHome(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, `<p><a href="/login/google">Login with Google</a></p>`)
 	fmt.Fprintln(w, `<p><a href="/login/github">Login with GitHub</a></p>`)
 	fmt.Fprintln(w, `<p><a href="/login/quran">Login with Quran.Foundation</a></p>`)
+	fmt.Fprintln(w, `<p><a href="/login/okta">Login with Okta</a></p>`)
 	// Add links for other providers
 }
 
@@ -151,6 +162,19 @@ func handleLoginQuran(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Info("Redirecting to Quran.Foundation for login", zap.String("state", state))
+	http.Redirect(w, r, authURL, http.StatusFound)
+}
+
+// handleLoginOkta initiates the Okta OAuth flow.
+func handleLoginOkta(w http.ResponseWriter, r *http.Request) {
+	state := uuid.NewString()
+	// TODO: Store state securely
+	authURL := oauthHandler.GetOktaAuthURL(r.Context(), state)
+	if authURL == "" {
+		http.Error(w, "Okta Auth URL generation failed", http.StatusInternalServerError)
+		return
+	}
+	logger.Info("Redirecting to Okta for login", zap.String("state", state))
 	http.Redirect(w, r, authURL, http.StatusFound)
 }
 
@@ -261,6 +285,41 @@ func handleCallbackQuran(w http.ResponseWriter, r *http.Request) {
 	logger.Info("Quran.Foundation Login Successful", zap.Any("user", user))
 	w.Header().Set("Content-Type", "text/html")
 	fmt.Fprintf(w, "<h1>Login Successful (Quran.Foundation)</h1><pre>%+v</pre>", user)
+}
+
+// handleCallbackOkta handles the redirect back from Okta.
+func handleCallbackOkta(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	state := r.URL.Query().Get("state")
+	code := r.URL.Query().Get("code")
+	errStr := r.URL.Query().Get("error")
+
+	// TODO: Verify state
+
+	if errStr != "" {
+		logger.Error("Okta OAuth callback error", zap.String("error", errStr))
+		http.Error(w, "Login failed: "+errStr, http.StatusUnauthorized)
+		return
+	}
+
+	if code == "" {
+		logger.Error("Okta OAuth callback missing code")
+		http.Error(w, "Login failed: Missing authorization code", http.StatusBadRequest)
+		return
+	}
+
+	logger.Info("Received Okta callback", zap.String("state", state), zap.String("code", code))
+
+	user, err := oauthHandler.LoginWithCode(ctx, auth.OktaOAuthProvider, code)
+	if err != nil {
+		logger.Error("Okta login failed", zap.Error(err))
+		http.Error(w, "Login failed processing code", http.StatusInternalServerError)
+		return
+	}
+
+	logger.Info("Okta Login Successful", zap.Any("user", user))
+	w.Header().Set("Content-Type", "text/html")
+	fmt.Fprintf(w, "<h1>Login Successful (Okta)</h1><pre>%+v</pre>", user)
 }
 
 // --- Middleware ---

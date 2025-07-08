@@ -83,7 +83,7 @@ func (o *OAuthHandler) quranFoundationLoginWithCode(ctx context.Context, code st
 
 	if !token.Valid() {
 		logger.Error("Received invalid token")
-		return nil, errors.New("received invalid token from provider")
+		return nil, ErrInvalidToken
 	}
 
 	client := o.quranFoundationOAuthConfig.Client(ctx, token)

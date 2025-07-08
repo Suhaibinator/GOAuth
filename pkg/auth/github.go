@@ -152,7 +152,7 @@ func (o *OAuthHandler) gitHubLoginWithCode(ctx context.Context, code string) (*U
 
 	if !token.Valid() {
 		logger.Error("Received invalid token")
-		return nil, errors.New("received invalid token from provider")
+		return nil, ErrInvalidToken
 	}
 
 	// Use the token to get an HTTP client

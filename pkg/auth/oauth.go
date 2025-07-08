@@ -85,6 +85,12 @@ type OAuthConfig struct {
 	QuranFoundationOAuthClientID     string `json:"quran_foundation_oauth_client_id" yaml:"quran_foundation_oauth_client_id" toml:"quran_foundation_oauth_client_id"`
 	QuranFoundationOAuthClientSecret string `json:"quran_foundation_oauth_client_secret" yaml:"quran_foundation_oauth_client_secret" toml:"quran_foundation_oauth_client_secret"`
 	QuranFoundationOAuthRedirectURL  string `json:"quran_foundation_oauth_redirect_url" yaml:"quran_foundation_oauth_redirect_url" toml:"quran_foundation_oauth_redirect_url"`
+
+	// Okta OAuth Configuration
+	OktaOAuthClientID     string `json:"okta_oauth_client_id" yaml:"okta_oauth_client_id" toml:"okta_oauth_client_id"`
+	OktaOAuthClientSecret string `json:"okta_oauth_client_secret" yaml:"okta_oauth_client_secret" toml:"okta_oauth_client_secret"`
+	OktaOAuthRedirectURL  string `json:"okta_oauth_redirect_url" yaml:"okta_oauth_redirect_url" toml:"okta_oauth_redirect_url"`
+	OktaOAuthDomain       string `json:"okta_oauth_domain" yaml:"okta_oauth_domain" toml:"okta_oauth_domain"` // e.g., "dev-12345.okta.com"
 }
 
 // Predefined errors related to the OAuth process.
@@ -95,6 +101,8 @@ var (
 	ErrFailedToGetUserInfo = errors.New("failed to get user info")
 	// ErrFailedToExchangeCode indicates an error occurred during the token exchange process.
 	ErrFailedToExchangeCode = errors.New("failed to exchange code for token")
+	// ErrInvalidToken indicates that the received token is invalid or malformed.
+	ErrInvalidToken = errors.New("invalid token received")
 )
 
 // OAuthHandler manages the configuration and logic for multiple OAuth providers.
@@ -106,6 +114,7 @@ type OAuthHandler struct {
 	linkedInOAuthConfig        *oauth2.Config     // Configuration for LinkedIn OAuth.
 	discordOAuthConfig         *oauth2.Config     // Configuration for Discord OAuth.
 	quranFoundationOAuthConfig *oauth2.Config
+	oktaOAuthConfig            *oauth2.Config // Configuration for Okta OAuth.
 	// Configuration for Quran.Foundation OAuth.
 	logger      *zap.Logger                                               // Shared logger instance.
 	logEnricher func(ctx context.Context, logger *zap.Logger) *zap.Logger // Function to enrich logs with trace ID.
@@ -202,6 +211,17 @@ func (h *OAuthHandler) registerOAuthProviders(ctx context.Context) {
 		logger.Info("LinkedIn OAuth registration skipped (missing config)")
 	}
 
+	if h.config.OktaOAuthClientID != "" && h.config.OktaOAuthClientSecret != "" && h.config.OktaOAuthDomain != "" {
+		if p, err := h.registerOktaOAuth(ctx); err != nil {
+			logger.Warn("Failed to register Okta OAuth", zap.Error(err))
+		} else {
+			h.providers[OktaOAuthProvider] = p
+			logger.Info("Okta OAuth registered successfully")
+		}
+	} else {
+		logger.Info("Okta OAuth registration skipped (missing config)")
+	}
+
 }
 
 type OAuthProvider int
@@ -214,6 +234,7 @@ const (
 	LinkedInOAuthProvider
 	DiscordOAuthProvider
 	QuranFoundationOAuthProvider
+	OktaOAuthProvider
 )
 
 func (h *OAuthHandler) LoginWithCode(ctx context.Context, provider OAuthProvider, code string) (*User, error) {
@@ -253,6 +274,8 @@ func (h *OAuthHandler) RefreshToken(ctx context.Context, provider OAuthProvider,
 		return h.refreshWithConfig(ctx, h.discordOAuthConfig, refreshToken)
 	case QuranFoundationOAuthProvider:
 		return h.refreshWithConfig(ctx, h.quranFoundationOAuthConfig, refreshToken)
+	case OktaOAuthProvider:
+		return h.refreshWithConfig(ctx, h.oktaOAuthConfig, refreshToken)
 	case AppleOAuthProvider:
 		if h.appleOauthHandler == nil {
 			logger.Error("Apple OAuth handler not initialized")
