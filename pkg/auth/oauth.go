@@ -209,7 +209,7 @@ func (h *OAuthHandler) registerOAuthProviders(ctx context.Context) {
 		logger.Info("LinkedIn OAuth registration skipped (missing config)")
 	}
 
-	if h.config.OktaOAuthClientID != "" {
+	if h.config.OktaOAuthClientID != "" && h.config.OktaOAuthClientSecret != "" && h.config.OktaOAuthDomain != "" {
 		if p, err := h.registerOktaOAuth(ctx); err != nil {
 			logger.Warn("Failed to register Okta OAuth", zap.Error(err))
 		} else {
