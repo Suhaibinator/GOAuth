@@ -43,8 +43,8 @@ func (d *discordProvider) AuthURL(ctx context.Context, state string) string {
 	return d.handler.GetDiscordAuthURL(ctx, state)
 }
 
-func (d *discordProvider) Login(ctx context.Context, code string) (*User, error) {
-	return d.handler.discordLoginWithCode(ctx, code)
+func (d *discordProvider) Login(ctx context.Context, code, redirectURI string) (*User, error) {
+	return d.handler.discordLoginWithCode(ctx, code, redirectURI)
 }
 
 // getDiscordAvatarURL constructs the full URL for a user's avatar given their ID and avatar hash.
@@ -93,7 +93,7 @@ func fetchDiscordUserInfo(ctx context.Context, client *http.Client) (*DiscordUse
 // information from the Discord API, and maps it to the standardized User struct.
 // Requires 'identify' and optionally 'email' scopes.
 // Returns ErrFailedToExchangeCode or ErrFailedToGetUserInfo on failure.
-func (o *OAuthHandler) discordLoginWithCode(ctx context.Context, code string) (*User, error) {
+func (o *OAuthHandler) discordLoginWithCode(ctx context.Context, code, redirectURI string) (*User, error) {
 	logger := o.logEnricher(ctx, o.logger).Named("discord_login")
 
 	if o.discordOAuthConfig == nil {
@@ -102,7 +102,12 @@ func (o *OAuthHandler) discordLoginWithCode(ctx context.Context, code string) (*
 	}
 
 	// Exchange the code for an OAuth token
-	token, err := o.discordOAuthConfig.Exchange(ctx, code)
+	if redirectURI == "" {
+		return nil, ErrMissingRedirectURI
+	}
+	exchangeConfig := *o.discordOAuthConfig
+	exchangeConfig.RedirectURL = redirectURI
+	token, err := exchangeConfig.Exchange(ctx, code)
 	if err != nil {
 		logger.Error("Failed to exchange code for token", zap.Error(err))
 		return nil, ErrFailedToExchangeCode
@@ -114,7 +119,7 @@ func (o *OAuthHandler) discordLoginWithCode(ctx context.Context, code string) (*
 	}
 
 	// Use the token to get an HTTP client
-	client := o.discordOAuthConfig.Client(ctx, token)
+	client := exchangeConfig.Client(ctx, token)
 	client.Timeout = 10 * time.Second // Set a timeout
 
 	// Get the user info from Discord's API

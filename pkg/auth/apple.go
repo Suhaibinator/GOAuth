@@ -47,8 +47,8 @@ func (a *appleProvider) AuthURL(ctx context.Context, state string) string {
 	return a.handler.GetAppleAuthURL(ctx, state)
 }
 
-func (a *appleProvider) Login(ctx context.Context, code string) (*User, error) {
-	return a.handler.appleLoginWithCode(ctx, code)
+func (a *appleProvider) Login(ctx context.Context, code, redirectURI string) (*User, error) {
+	return a.handler.appleLoginWithCode(ctx, code, redirectURI)
 }
 
 // generateClientSecret creates the JWT client secret required by Apple.
@@ -117,7 +117,11 @@ func NewAppleOauthHandler(clientID, teamID, keyID, privateKeyPEM, redirectURL st
 }
 
 // Exchange attempts to exchange an authorization code for tokens at Apple's token endpoint.
-func (a *AppleOauthHandler) Exchange(code string) (*AppleTokenResponse, error) {
+// redirectURI must be the exact, caller-validated URI used during authorization.
+func (a *AppleOauthHandler) Exchange(code, redirectURI string) (*AppleTokenResponse, error) {
+	if redirectURI == "" {
+		return nil, ErrMissingRedirectURI
+	}
 	clientSecret, err := a.generateClientSecret()
 	if err != nil {
 		return nil, err
@@ -127,7 +131,7 @@ func (a *AppleOauthHandler) Exchange(code string) (*AppleTokenResponse, error) {
 	data.Set("code", code)
 	data.Set("client_id", a.ClientID)
 	data.Set("client_secret", clientSecret)
-	data.Set("redirect_uri", a.RedirectURL)
+	data.Set("redirect_uri", redirectURI)
 	data.Set("grant_type", "authorization_code")
 
 	req, err := http.NewRequest("POST", "https://appleid.apple.com/auth/token", strings.NewReader(data.Encode()))
@@ -231,7 +235,7 @@ func (a *AppleOauthHandler) GetAuthURL(state string) string {
 // WARNING: This function relies on the insecure Exchange and GetUserInfo methods of the
 // current AppleOauthHandler. It does not perform proper client secret generation or ID token validation.
 // It's suitable only for basic demonstration and MUST be heavily modified for production.
-func (o *OAuthHandler) appleLoginWithCode(ctx context.Context, code string) (*User, error) {
+func (o *OAuthHandler) appleLoginWithCode(ctx context.Context, code, redirectURI string) (*User, error) {
 	logger := o.logEnricher(ctx, o.logger).Named("apple_login")
 	if o.appleOauthHandler == nil {
 		logger.Error("Apple OAuth handler not initialized")
@@ -239,7 +243,10 @@ func (o *OAuthHandler) appleLoginWithCode(ctx context.Context, code string) (*Us
 	}
 
 	// Exchange the code for an access token and ID token
-	token, err := o.appleOauthHandler.Exchange(code)
+	if redirectURI == "" {
+		return nil, ErrMissingRedirectURI
+	}
+	token, err := o.appleOauthHandler.Exchange(code, redirectURI)
 	if err != nil {
 		o.logEnricher(ctx, o.logger).Error("Failed to exchange code for token", zap.Error(err))
 		return nil, ErrFailedToExchangeCode
@@ -289,10 +296,10 @@ func (o *OAuthHandler) registerAppleOAuth(ctx context.Context) (Provider, error)
 		o.config.AppleOAuthPrivateKey,
 		o.config.AppleOAuthRedirectURL,
 	)
-       if err != nil {
-               logger.Error("failed to create apple handler", zap.Error(err))
-               return nil, err
-       }
+	if err != nil {
+		logger.Error("failed to create apple handler", zap.Error(err))
+		return nil, err
+	}
 	o.appleOauthHandler = handler
 	logger.Info("Apple OAuth handler registered")
 	return &appleProvider{handler: o}, nil

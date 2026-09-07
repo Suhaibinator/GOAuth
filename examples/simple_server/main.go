@@ -201,7 +201,7 @@ func handleCallbackGoogle(w http.ResponseWriter, r *http.Request) {
 
 	logger.Info("Received Google callback", zap.String("state", state), zap.String("code", code))
 
-	user, err := oauthHandler.LoginWithCode(ctx, auth.GoogleOAuthProvider, code)
+	user, err := oauthHandler.LoginWithCode(ctx, auth.GoogleOAuthProvider, code, redirectURIBase+"google")
 	if err != nil {
 		logger.Error("Google login failed", zap.Error(err))
 		http.Error(w, "Login failed processing code", http.StatusInternalServerError)
@@ -238,7 +238,7 @@ func handleCallbackGithub(w http.ResponseWriter, r *http.Request) {
 
 	logger.Info("Received GitHub callback", zap.String("state", state), zap.String("code", code))
 
-	user, err := oauthHandler.LoginWithCode(ctx, auth.GitHubOAuthProvider, code)
+	user, err := oauthHandler.LoginWithCode(ctx, auth.GitHubOAuthProvider, code, redirectURIBase+"github")
 	if err != nil {
 		logger.Error("GitHub login failed", zap.Error(err))
 		http.Error(w, "Login failed processing code", http.StatusInternalServerError)
@@ -275,7 +275,7 @@ func handleCallbackQuran(w http.ResponseWriter, r *http.Request) {
 
 	logger.Info("Received Quran.Foundation callback", zap.String("state", state), zap.String("code", code))
 
-	user, err := oauthHandler.LoginWithCode(ctx, auth.QuranFoundationOAuthProvider, code)
+	user, err := oauthHandler.LoginWithCode(ctx, auth.QuranFoundationOAuthProvider, code, redirectURIBase+"quran")
 	if err != nil {
 		logger.Error("Quran.Foundation login failed", zap.Error(err))
 		http.Error(w, "Login failed processing code", http.StatusInternalServerError)
@@ -310,7 +310,7 @@ func handleCallbackOkta(w http.ResponseWriter, r *http.Request) {
 
 	logger.Info("Received Okta callback", zap.String("state", state), zap.String("code", code))
 
-	user, err := oauthHandler.LoginWithCode(ctx, auth.OktaOAuthProvider, code)
+	user, err := oauthHandler.LoginWithCode(ctx, auth.OktaOAuthProvider, code, redirectURIBase+"okta")
 	if err != nil {
 		logger.Error("Okta login failed", zap.Error(err))
 		http.Error(w, "Login failed processing code", http.StatusInternalServerError)

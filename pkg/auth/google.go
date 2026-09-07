@@ -37,8 +37,8 @@ func (g *googleProvider) AuthURL(ctx context.Context, state string) string {
 	return g.handler.GetGoogleAuthURL(ctx, state)
 }
 
-func (g *googleProvider) Login(ctx context.Context, code string) (*User, error) {
-	return g.handler.googleLoginWithCode(ctx, code)
+func (g *googleProvider) Login(ctx context.Context, code, redirectURI string) (*User, error) {
+	return g.handler.googleLoginWithCode(ctx, code, redirectURI)
 }
 
 // googleLoginWithCode handles the final step of the Google OAuth flow.
@@ -46,7 +46,7 @@ func (g *googleProvider) Login(ctx context.Context, code string) (*User, error) 
 // fetches the user's profile information from Google's userinfo endpoint,
 // and maps it to the standardized User struct.
 // Returns ErrFailedToExchangeCode or ErrFailedToGetUserInfo on failure.
-func (o *OAuthHandler) googleLoginWithCode(ctx context.Context, code string) (*User, error) {
+func (o *OAuthHandler) googleLoginWithCode(ctx context.Context, code, redirectURI string) (*User, error) {
 	logger := o.logEnricher(ctx, o.logger).Named("google_login")
 
 	if o.googleOAuthConfig == nil {
@@ -55,7 +55,12 @@ func (o *OAuthHandler) googleLoginWithCode(ctx context.Context, code string) (*U
 	}
 
 	// Exchange the code for an OAuth token
-	token, err := o.googleOAuthConfig.Exchange(ctx, code)
+	if redirectURI == "" {
+		return nil, ErrMissingRedirectURI
+	}
+	exchangeConfig := *o.googleOAuthConfig
+	exchangeConfig.RedirectURL = redirectURI
+	token, err := exchangeConfig.Exchange(ctx, code)
 	if err != nil {
 		logger.Error("Failed to exchange code for token", zap.Error(err))
 		// Check if the error is specifically an invalid code error
@@ -70,7 +75,7 @@ func (o *OAuthHandler) googleLoginWithCode(ctx context.Context, code string) (*U
 	}
 
 	// Use the token to get an HTTP client
-	client := o.googleOAuthConfig.Client(ctx, token)
+	client := exchangeConfig.Client(ctx, token)
 	client.Timeout = 10 * time.Second // Set a timeout
 
 	// Get the user info from Google's userinfo endpoint

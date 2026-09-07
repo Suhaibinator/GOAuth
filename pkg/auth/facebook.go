@@ -50,8 +50,8 @@ func (f *facebookProvider) AuthURL(ctx context.Context, state string) string {
 	return f.handler.GetFacebookAuthURL(ctx, state)
 }
 
-func (f *facebookProvider) Login(ctx context.Context, code string) (*User, error) {
-	return f.handler.facebookLoginWithCode(ctx, code)
+func (f *facebookProvider) Login(ctx context.Context, code, redirectURI string) (*User, error) {
+	return f.handler.facebookLoginWithCode(ctx, code, redirectURI)
 }
 
 // fetchFacebookUserInfo retrieves the authenticated user's profile information from the Facebook Graph API (`/me`).
@@ -90,7 +90,7 @@ func fetchFacebookUserInfo(ctx context.Context, client *http.Client) (*FacebookU
 // information from the Facebook Graph API, and maps the data to the standardized User struct.
 // Requires 'public_profile' and 'email' scopes for full user details.
 // Returns ErrFailedToExchangeCode or ErrFailedToGetUserInfo on failure.
-func (o *OAuthHandler) facebookLoginWithCode(ctx context.Context, code string) (*User, error) {
+func (o *OAuthHandler) facebookLoginWithCode(ctx context.Context, code, redirectURI string) (*User, error) {
 	logger := o.logEnricher(ctx, o.logger).Named("facebook_login")
 
 	if o.facebookOAuthConfig == nil {
@@ -99,7 +99,12 @@ func (o *OAuthHandler) facebookLoginWithCode(ctx context.Context, code string) (
 	}
 
 	// Exchange the code for an OAuth token
-	token, err := o.facebookOAuthConfig.Exchange(ctx, code)
+	if redirectURI == "" {
+		return nil, ErrMissingRedirectURI
+	}
+	exchangeConfig := *o.facebookOAuthConfig
+	exchangeConfig.RedirectURL = redirectURI
+	token, err := exchangeConfig.Exchange(ctx, code)
 	if err != nil {
 		logger.Error("Failed to exchange code for token", zap.Error(err))
 		return nil, ErrFailedToExchangeCode
@@ -111,7 +116,7 @@ func (o *OAuthHandler) facebookLoginWithCode(ctx context.Context, code string) (
 	}
 
 	// Use the token to get an HTTP client
-	client := o.facebookOAuthConfig.Client(ctx, token)
+	client := exchangeConfig.Client(ctx, token)
 	client.Timeout = 10 * time.Second // Set a timeout
 
 	// Get the user info from Facebook's Graph API
