@@ -18,26 +18,26 @@ import (
 // OktaUserInfo represents the user information returned by Okta's userinfo endpoint
 // (https://{domain}/oauth2/v1/userinfo).
 type OktaUserInfo struct {
-	Sub               string `json:"sub"`                         // The user's unique Okta ID.
-	Name              string `json:"name"`                        // The user's full name.
-	GivenName         string `json:"given_name"`                  // The user's first name.
-	FamilyName        string `json:"family_name"`                 // The user's last name.
-	MiddleName        string `json:"middle_name,omitempty"`       // The user's middle name.
-	Nickname          string `json:"nickname,omitempty"`          // The user's nickname.
-	PreferredUsername string `json:"preferred_username"`          // The user's preferred username.
-	Profile           string `json:"profile,omitempty"`           // URL of the user's profile page.
-	Picture           string `json:"picture,omitempty"`           // URL of the user's profile picture.
-	Website           string `json:"website,omitempty"`           // URL of the user's website.
-	Email             string `json:"email"`                       // The user's email address.
-	EmailVerified     bool   `json:"email_verified"`              // Whether the email address is verified.
-	Gender            string `json:"gender,omitempty"`            // The user's gender.
-	Birthdate         string `json:"birthdate,omitempty"`         // The user's birthdate.
-	Zoneinfo          string `json:"zoneinfo,omitempty"`          // The user's time zone.
-	Locale            string `json:"locale,omitempty"`            // The user's locale.
-	PhoneNumber       string `json:"phone_number,omitempty"`      // The user's phone number.
-	PhoneVerified     bool   `json:"phone_number_verified"`       // Whether the phone number is verified.
-	Address           string `json:"address,omitempty"`           // The user's address.
-	UpdatedAt         int64  `json:"updated_at"`                  // When the user's info was last updated.
+	Sub               string `json:"sub"`                    // The user's unique Okta ID.
+	Name              string `json:"name"`                   // The user's full name.
+	GivenName         string `json:"given_name"`             // The user's first name.
+	FamilyName        string `json:"family_name"`            // The user's last name.
+	MiddleName        string `json:"middle_name,omitempty"`  // The user's middle name.
+	Nickname          string `json:"nickname,omitempty"`     // The user's nickname.
+	PreferredUsername string `json:"preferred_username"`     // The user's preferred username.
+	Profile           string `json:"profile,omitempty"`      // URL of the user's profile page.
+	Picture           string `json:"picture,omitempty"`      // URL of the user's profile picture.
+	Website           string `json:"website,omitempty"`      // URL of the user's website.
+	Email             string `json:"email"`                  // The user's email address.
+	EmailVerified     bool   `json:"email_verified"`         // Whether the email address is verified.
+	Gender            string `json:"gender,omitempty"`       // The user's gender.
+	Birthdate         string `json:"birthdate,omitempty"`    // The user's birthdate.
+	Zoneinfo          string `json:"zoneinfo,omitempty"`     // The user's time zone.
+	Locale            string `json:"locale,omitempty"`       // The user's locale.
+	PhoneNumber       string `json:"phone_number,omitempty"` // The user's phone number.
+	PhoneVerified     bool   `json:"phone_number_verified"`  // Whether the phone number is verified.
+	Address           string `json:"address,omitempty"`      // The user's address.
+	UpdatedAt         int64  `json:"updated_at"`             // When the user's info was last updated.
 }
 
 // oktaProvider implements the Provider interface for Okta OAuth.
@@ -49,15 +49,15 @@ func (o *oktaProvider) AuthURL(ctx context.Context, state string) string {
 	return o.handler.GetOktaAuthURL(ctx, state)
 }
 
-func (o *oktaProvider) Login(ctx context.Context, code string) (*User, error) {
-	return o.handler.oktaLoginWithCode(ctx, code)
+func (o *oktaProvider) Login(ctx context.Context, code, redirectURI string) (*User, error) {
+	return o.handler.oktaLoginWithCode(ctx, code, redirectURI)
 }
 
 // fetchOktaUserInfo retrieves the authenticated user's profile information from Okta's userinfo endpoint.
 // It requires an authorized http.Client.
 func fetchOktaUserInfo(ctx context.Context, client *http.Client, domain string) (*OktaUserInfo, error) {
 	userInfoURL := fmt.Sprintf("https://%s/oauth2/v1/userinfo", domain)
-	
+
 	req, err := http.NewRequestWithContext(ctx, "GET", userInfoURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create user info request: %w", err)
@@ -85,7 +85,7 @@ func fetchOktaUserInfo(ctx context.Context, client *http.Client, domain string) 
 // It exchanges the authorization code for an access token, fetches the user's profile
 // information from Okta's userinfo endpoint, and maps it to the standardized User struct.
 // Returns ErrFailedToExchangeCode or ErrFailedToGetUserInfo on failure.
-func (o *OAuthHandler) oktaLoginWithCode(ctx context.Context, code string) (*User, error) {
+func (o *OAuthHandler) oktaLoginWithCode(ctx context.Context, code, redirectURI string) (*User, error) {
 	logger := o.logEnricher(ctx, o.logger).Named("okta_login")
 
 	if o.oktaOAuthConfig == nil {
@@ -94,7 +94,12 @@ func (o *OAuthHandler) oktaLoginWithCode(ctx context.Context, code string) (*Use
 	}
 
 	// Exchange the code for an OAuth token
-	token, err := o.oktaOAuthConfig.Exchange(ctx, code)
+	if redirectURI == "" {
+		return nil, ErrMissingRedirectURI
+	}
+	exchangeConfig := *o.oktaOAuthConfig
+	exchangeConfig.RedirectURL = redirectURI
+	token, err := exchangeConfig.Exchange(ctx, code)
 	if err != nil {
 		logger.Error("Failed to exchange code for token", zap.Error(err))
 		return nil, ErrFailedToExchangeCode
@@ -106,7 +111,7 @@ func (o *OAuthHandler) oktaLoginWithCode(ctx context.Context, code string) (*Use
 	}
 
 	// Use the token to get an HTTP client
-	client := o.oktaOAuthConfig.Client(ctx, token)
+	client := exchangeConfig.Client(ctx, token)
 	client.Timeout = 15 * time.Second // Set a timeout for Okta API calls
 
 	// Get the user info from Okta's userinfo endpoint

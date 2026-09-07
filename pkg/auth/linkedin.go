@@ -68,8 +68,8 @@ func (l *linkedinProvider) AuthURL(ctx context.Context, state string) string {
 	return l.handler.GetLinkedInAuthURL(ctx, state)
 }
 
-func (l *linkedinProvider) Login(ctx context.Context, code string) (*User, error) {
-	return l.handler.linkedInLoginWithCode(ctx, code)
+func (l *linkedinProvider) Login(ctx context.Context, code, redirectURI string) (*User, error) {
+	return l.handler.linkedInLoginWithCode(ctx, code, redirectURI)
 }
 
 // fetchLinkedInUserInfo retrieves the user's basic profile information from the LinkedIn API (`/v2/me`).
@@ -192,7 +192,7 @@ func extractLinkedInProfilePictureURL(pic *LinkedInPicture) string {
 // standardized User struct.
 // Requires appropriate scopes like 'profile', 'email', 'openid' (or older 'r_liteprofile', 'r_emailaddress').
 // Returns ErrFailedToExchangeCode or ErrFailedToGetUserInfo on failure.
-func (o *OAuthHandler) linkedInLoginWithCode(ctx context.Context, code string) (*User, error) {
+func (o *OAuthHandler) linkedInLoginWithCode(ctx context.Context, code, redirectURI string) (*User, error) {
 	logger := o.logEnricher(ctx, o.logger).Named("linkedin_login")
 
 	if o.linkedInOAuthConfig == nil {
@@ -201,7 +201,12 @@ func (o *OAuthHandler) linkedInLoginWithCode(ctx context.Context, code string) (
 	}
 
 	// Exchange the code for an OAuth token
-	token, err := o.linkedInOAuthConfig.Exchange(ctx, code)
+	if redirectURI == "" {
+		return nil, ErrMissingRedirectURI
+	}
+	exchangeConfig := *o.linkedInOAuthConfig
+	exchangeConfig.RedirectURL = redirectURI
+	token, err := exchangeConfig.Exchange(ctx, code)
 	if err != nil {
 		logger.Error("Failed to exchange code for token", zap.Error(err))
 		return nil, ErrFailedToExchangeCode
@@ -213,7 +218,7 @@ func (o *OAuthHandler) linkedInLoginWithCode(ctx context.Context, code string) (
 	}
 
 	// Use the token to get an HTTP client
-	client := o.linkedInOAuthConfig.Client(ctx, token)
+	client := exchangeConfig.Client(ctx, token)
 	client.Timeout = 15 * time.Second // Increased timeout for potentially slower LinkedIn APIs
 
 	// Get the user info from LinkedIn's API

@@ -186,3 +186,29 @@ Contributions are welcome! To get started:
 2. Ensure the project builds with `go build -v ./...`.
 3. Although tests are currently missing, add unit tests for any new functionality and run `go test -v ./...`.
 4. Open a pull request describing your changes.
+
+## Migration: explicit exchange redirect URI (breaking change)
+
+`OAuthHandler.LoginWithCode` and `Provider.Login` now require a `redirectURI`
+argument. `AppleOauthHandler.Exchange` also requires it. Update custom provider
+implementations and callers; no legacy overload or configured fallback is retained.
+
+```go
+// validatedRedirectURI is the exact URI used to obtain this code, recovered
+// from verified OAuth state after checking the application's callback allowlist.
+user, err := oauthHandler.LoginWithCode(ctx, auth.GoogleOAuthProvider, code, validatedRedirectURI)
+```
+
+For a single-host application, pass the same configured callback used to build
+its authorization URL. For multiple hosts, select an allowlisted callback before
+authorization, bind it to the attempt in authenticated state, and recover that
+same value at exchange. Keep the post-login destination separate from this URI.
+Register every supported callback with the OAuth provider. Do not derive the
+exchange URI from unchecked request headers or callback parameters.
+
+The configured redirect URLs remain defaults for authorization URL helpers.
+Those helpers do not select a per-attempt URI automatically; applications building
+multi-host authorization URLs must use their selected URI in that request too.
+GOAuth forwards the explicit exchange URI unchanged and rejects an empty value.
+Application allowlisting and state verification remain the caller's responsibility.
+Per-exchange OAuth configuration copies keep concurrent callbacks isolated.

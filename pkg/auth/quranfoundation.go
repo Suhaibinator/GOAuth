@@ -35,8 +35,8 @@ func (q *qfProvider) AuthURL(ctx context.Context, state string) string {
 	return q.handler.GetQuranFoundationAuthURL(ctx, state)
 }
 
-func (q *qfProvider) Login(ctx context.Context, code string) (*User, error) {
-	return q.handler.quranFoundationLoginWithCode(ctx, code)
+func (q *qfProvider) Login(ctx context.Context, code, redirectURI string) (*User, error) {
+	return q.handler.quranFoundationLoginWithCode(ctx, code, redirectURI)
 }
 
 // fetchQuranFoundationUserInfo retrieves the user's profile information from the
@@ -67,7 +67,7 @@ func fetchQuranFoundationUserInfo(ctx context.Context, client *http.Client) (*Qu
 
 // quranFoundationLoginWithCode completes the OAuth flow by exchanging the code
 // for a token and retrieving user information.
-func (o *OAuthHandler) quranFoundationLoginWithCode(ctx context.Context, code string) (*User, error) {
+func (o *OAuthHandler) quranFoundationLoginWithCode(ctx context.Context, code, redirectURI string) (*User, error) {
 	logger := o.logEnricher(ctx, o.logger).Named("quranfoundation_login")
 
 	if o.quranFoundationOAuthConfig == nil {
@@ -75,7 +75,12 @@ func (o *OAuthHandler) quranFoundationLoginWithCode(ctx context.Context, code st
 		return nil, errors.New("quran.foundation OAuth config not initialized")
 	}
 
-	token, err := o.quranFoundationOAuthConfig.Exchange(ctx, code)
+	if redirectURI == "" {
+		return nil, ErrMissingRedirectURI
+	}
+	exchangeConfig := *o.quranFoundationOAuthConfig
+	exchangeConfig.RedirectURL = redirectURI
+	token, err := exchangeConfig.Exchange(ctx, code)
 	if err != nil {
 		logger.Error("Failed to exchange code for token", zap.Error(err))
 		return nil, ErrFailedToExchangeCode
@@ -86,7 +91,7 @@ func (o *OAuthHandler) quranFoundationLoginWithCode(ctx context.Context, code st
 		return nil, ErrInvalidToken
 	}
 
-	client := o.quranFoundationOAuthConfig.Client(ctx, token)
+	client := exchangeConfig.Client(ctx, token)
 	client.Timeout = 10 * time.Second
 
 	userInfo, err := fetchQuranFoundationUserInfo(ctx, client)

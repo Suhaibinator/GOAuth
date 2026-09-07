@@ -35,8 +35,8 @@ func (g *githubProvider) AuthURL(ctx context.Context, state string) string {
 	return g.handler.GetGitHubAuthURL(ctx, state)
 }
 
-func (g *githubProvider) Login(ctx context.Context, code string) (*User, error) {
-	return g.handler.gitHubLoginWithCode(ctx, code)
+func (g *githubProvider) Login(ctx context.Context, code, redirectURI string) (*User, error) {
+	return g.handler.gitHubLoginWithCode(ctx, code, redirectURI)
 }
 
 // GitHubUserEmail represents an email address associated with a GitHub user,
@@ -135,7 +135,7 @@ func selectPrimaryGitHubEmail(emails []GitHubUserEmail) string {
 // standardized User struct.
 // Requires 'read:user' and 'user:email' scopes.
 // Returns ErrFailedToExchangeCode or ErrFailedToGetUserInfo on failure.
-func (o *OAuthHandler) gitHubLoginWithCode(ctx context.Context, code string) (*User, error) {
+func (o *OAuthHandler) gitHubLoginWithCode(ctx context.Context, code, redirectURI string) (*User, error) {
 	logger := o.logEnricher(ctx, o.logger).Named("github_login")
 
 	if o.githubOAuthConfig == nil {
@@ -144,7 +144,12 @@ func (o *OAuthHandler) gitHubLoginWithCode(ctx context.Context, code string) (*U
 	}
 
 	// Exchange the code for an OAuth token
-	token, err := o.githubOAuthConfig.Exchange(ctx, code)
+	if redirectURI == "" {
+		return nil, ErrMissingRedirectURI
+	}
+	exchangeConfig := *o.githubOAuthConfig
+	exchangeConfig.RedirectURL = redirectURI
+	token, err := exchangeConfig.Exchange(ctx, code)
 	if err != nil {
 		logger.Error("Failed to exchange code for token", zap.Error(err))
 		return nil, ErrFailedToExchangeCode
@@ -156,7 +161,7 @@ func (o *OAuthHandler) gitHubLoginWithCode(ctx context.Context, code string) (*U
 	}
 
 	// Use the token to get an HTTP client
-	client := o.githubOAuthConfig.Client(ctx, token)
+	client := exchangeConfig.Client(ctx, token)
 	client.Timeout = 10 * time.Second // Set a timeout
 
 	// Get the user info from GitHub's API

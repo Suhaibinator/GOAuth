@@ -46,6 +46,7 @@ func NewOAuthHandler(
 
 // OAuthConfig holds the necessary configuration details for all supported OAuth providers.
 // Client ID, Client Secret, and Redirect URL must be provided for each enabled provider.
+// Redirect URLs are authorization-URL defaults; code exchanges require an explicit URI.
 type OAuthConfig struct {
 	// Google OAuth Configuration
 	GoogleOAuthClientID     string `json:"google_oauth_client_id" yaml:"google_oauth_client_id" toml:"google_oauth_client_id"`
@@ -95,6 +96,8 @@ type OAuthConfig struct {
 
 // Predefined errors related to the OAuth process.
 var (
+	// ErrMissingRedirectURI indicates that an exchange has no explicit callback URI.
+	ErrMissingRedirectURI = errors.New("oauth redirect URI is required")
 	// ErrInvalidOAuthCode indicates that the provided authorization code is invalid or expired.
 	ErrInvalidOAuthCode = errors.New("invalid oauth code")
 	// ErrFailedToGetUserInfo indicates an error occurred while fetching user details from the provider.
@@ -237,7 +240,10 @@ const (
 	OktaOAuthProvider
 )
 
-func (h *OAuthHandler) LoginWithCode(ctx context.Context, provider OAuthProvider, code string) (*User, error) {
+// LoginWithCode exchanges code using the exact redirect URI supplied during
+// authorization. The caller must allowlist the URI and bind it to verified OAuth
+// state; never pass an unchecked callback parameter. There is no configured fallback.
+func (h *OAuthHandler) LoginWithCode(ctx context.Context, provider OAuthProvider, code, redirectURI string) (*User, error) {
 	logger := h.logEnricher(ctx, h.logger)
 
 	p, ok := h.providers[provider]
@@ -246,7 +252,10 @@ func (h *OAuthHandler) LoginWithCode(ctx context.Context, provider OAuthProvider
 		return nil, errors.New("invalid OAuth provider")
 	}
 
-	return p.Login(ctx, code)
+	if redirectURI == "" {
+		return nil, ErrMissingRedirectURI
+	}
+	return p.Login(ctx, code, redirectURI)
 }
 
 // RefreshToken attempts to exchange a refresh token for a new access token for the
