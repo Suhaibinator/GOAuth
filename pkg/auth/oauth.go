@@ -17,6 +17,19 @@ type User struct {
 	AvatarUrl string `json:"avatar_url"` // URL to the user's profile picture (if available)
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"` // User's last name (if available)
+	// EmailVerified reports whether the provider has verified Email: true when
+	// verified, false when explicitly unverified, and nil when the provider does
+	// not report a status for the returned address (or Email is empty).
+	EmailVerified *bool `json:"email_verified,omitempty"`
+}
+
+// emailVerifiedStatus returns a provider's verification flag for email, or nil
+// when there is no email address for the flag to describe.
+func emailVerifiedStatus(email string, verified bool) *bool {
+	if email == "" {
+		return nil
+	}
+	return &verified
 }
 
 // NewOAuthHandler creates and initializes a new OAuthHandler instance.

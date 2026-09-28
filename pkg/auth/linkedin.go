@@ -252,7 +252,8 @@ func (o *OAuthHandler) linkedInLoginWithCode(ctx context.Context, code, redirect
 	// Extract profile picture URL
 	avatarURL := extractLinkedInProfilePictureURL(linkedInUser.ProfilePicture)
 
-	// Create a standardized User from the LinkedIn user info
+	// Create a standardized User from the LinkedIn user info. The Email API
+	// does not report verification status, so EmailVerified stays nil.
 	user := &User{
 		// Use full name as username to maintain consistency with other providers
 		Username:  linkedInUser.LocalizedFirstName + " " + linkedInUser.LocalizedLastName,

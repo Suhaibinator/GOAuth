@@ -135,11 +135,12 @@ GOAuth normalizes user data from all providers into a common `User` struct:
 
 ```go
 type User struct {
-    Username  string  // Display name or full name (see note below)
-    Email     string  // User's email address
-    AvatarUrl string  // Profile picture URL
-    FirstName string  // First/given name
-    LastName  string  // Last/family name
+    Username      string // Display name or full name (see note below)
+    Email         string // User's email address
+    AvatarUrl     string // Profile picture URL
+    FirstName     string // First/given name
+    LastName      string // Last/family name
+    EmailVerified *bool  // Provider's verification status for Email (nil if unknown)
 }
 ```
 
@@ -159,6 +160,21 @@ The `Username` field contains human-readable names, but the exact content varies
 | Okta | Full name (falls back to preferred username) | "John Doe" or "john.doe" |
 
 **Note:** The `Username` field does NOT contain unique provider IDs. If you need to store a unique identifier for the user, you should generate one based on the provider and email combination, or maintain a separate mapping in your application.
+
+### Email Verification
+
+`EmailVerified` is `true` when the provider reports the returned email as verified, `false` when it reports it as unverified, and `nil` when the provider gives no status for that address (or `Email` is empty). It is serialized as `email_verified` and omitted from JSON when `nil`. Treat `nil` as "unknown", not as verified.
+
+| Provider | Source of `EmailVerified` |
+|----------|---------------------------|
+| Google | `verified_email` from the userinfo endpoint |
+| GitHub | `verified` for the matching address in `/user/emails` (nil if that list can't be fetched) |
+| Discord | `verified` from `/users/@me` (nil when `UseDiscordIdAsEmail` is set) |
+| Okta | `email_verified` from the userinfo endpoint |
+| Quran.Foundation | `email_verified` from the userinfo endpoint, when present |
+| Apple | `email_verified` claim in the ID token, when present (the ID token signature is not yet validated) |
+| LinkedIn | Always nil (not reported by the Email API) |
+| Facebook | Always nil (not reported by the Graph API) |
 
 ## Improvements & Future Work
 
