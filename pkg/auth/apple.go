@@ -90,6 +90,8 @@ type AppleUserInfo struct {
 	ID    string `json:"sub"`   // The unique user identifier (subject claim from ID token).
 	Email string `json:"email"` // The user's email address (from ID token).
 	Name  string `json:"name"`  // Placeholder for name; usually obtained from initial auth form post, not token.
+	// EmailVerified is the ID token's email_verified claim; nil when absent or unrecognized.
+	EmailVerified *bool `json:"email_verified,omitempty"`
 }
 
 // NewAppleOauthHandler creates a new AppleOauthHandler with the provided (simplified) configuration.
@@ -180,8 +182,9 @@ func (a *AppleOauthHandler) GetUserInfo(token *AppleTokenResponse) (*AppleUserIn
 	}
 
 	var claims struct {
-		Sub   string `json:"sub"`
-		Email string `json:"email"`
+		Sub           string          `json:"sub"`
+		Email         string          `json:"email"`
+		EmailVerified json.RawMessage `json:"email_verified"`
 		// Name might be nested or absent depending on scope and first login
 	}
 	if err := json.Unmarshal(payload, &claims); err != nil {
@@ -195,8 +198,27 @@ func (a *AppleOauthHandler) GetUserInfo(token *AppleTokenResponse) (*AppleUserIn
 		Email: claims.Email,
 		Name:  "Apple User", // Default or retrieve if available
 	}
+	if claims.Email != "" {
+		userInfo.EmailVerified = parseAppleBoolClaim(claims.EmailVerified)
+	}
 
 	return userInfo, nil
+}
+
+// parseAppleBoolClaim decodes an Apple ID token boolean claim, which Apple may
+// send as a JSON boolean or as the string "true" or "false". Any other value,
+// including an absent claim, yields nil.
+func parseAppleBoolClaim(raw json.RawMessage) *bool {
+	var value bool
+	switch string(raw) {
+	case `true`, `"true"`:
+		value = true
+	case `false`, `"false"`:
+		value = false
+	default:
+		return nil
+	}
+	return &value
 }
 
 // base64URLDecode is a helper function to decode Base64 URL encoded strings,
@@ -264,6 +286,8 @@ func (o *OAuthHandler) appleLoginWithCode(ctx context.Context, code, redirectURI
 		Username:  appleUser.Name, // Name might be missing after first login
 		Email:     appleUser.Email,
 		AvatarUrl: "", // Apple doesn't provide an avatar URL
+		// Like the other ID token claims, this is not signature-checked (see GetUserInfo).
+		EmailVerified: appleUser.EmailVerified,
 	}
 
 	return user, nil

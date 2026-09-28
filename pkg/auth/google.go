@@ -107,6 +107,8 @@ func (o *OAuthHandler) googleLoginWithCode(ctx context.Context, code, redirectUR
 		AvatarUrl: googleUser.Picture,
 		FirstName: googleUser.GivenName,
 		LastName:  googleUser.FamilyName,
+		// Google's v2 userinfo endpoint returns verified_email alongside email.
+		EmailVerified: emailVerifiedStatus(googleUser.Email, googleUser.VerifiedEmail),
 	}
 
 	logger.Info("Google login successful", zap.String("email", user.Email))

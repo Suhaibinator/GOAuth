@@ -133,6 +133,8 @@ func (o *OAuthHandler) oktaLoginWithCode(ctx context.Context, code, redirectURI 
 		AvatarUrl: oktaUser.Picture,
 		FirstName: oktaUser.GivenName,
 		LastName:  oktaUser.FamilyName,
+		// Okta returns email_verified alongside email for the 'email' scope.
+		EmailVerified: emailVerifiedStatus(oktaUser.Email, oktaUser.EmailVerified),
 	}
 
 	logger.Info("Okta login successful", zap.String("okta_sub", oktaUser.Sub), zap.String("email", user.Email))

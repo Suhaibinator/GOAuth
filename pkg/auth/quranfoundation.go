@@ -24,6 +24,8 @@ type QuranFoundationUserInfo struct {
 	FamilyName string `json:"family_name"` // Last name
 	Email      string `json:"email"`       // Email address
 	Picture    string `json:"picture"`     // Profile picture URL
+	// EmailVerified is the OIDC email_verified claim; nil when not returned.
+	EmailVerified *bool `json:"email_verified,omitempty"`
 }
 
 // qfProvider implements the Provider interface for Quran.Foundation OAuth.
@@ -106,6 +108,9 @@ func (o *OAuthHandler) quranFoundationLoginWithCode(ctx context.Context, code, r
 		AvatarUrl: userInfo.Picture,
 		FirstName: userInfo.GivenName,
 		LastName:  userInfo.FamilyName,
+	}
+	if user.Email != "" {
+		user.EmailVerified = userInfo.EmailVerified
 	}
 
 	logger.Info("Quran.Foundation login successful", zap.String("email", user.Email))

@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Suhaibinator/GOAuth/pkg/util"
 	"go.uber.org/zap"
 	"golang.org/x/oauth2"
 	// Discord endpoint will be defined manually
@@ -138,9 +137,16 @@ func (o *OAuthHandler) discordLoginWithCode(ctx context.Context, code, redirectU
 	// Create the standardized User struct.
 	user := &User{
 		Username:  username,
-		Email:     util.Ternary(o.config.UseDiscordIdAsEmail, discordUser.ID+"@discordid.com", discordUser.Email), // Will be empty if 'email' scope was not granted.
+		Email:     discordUser.Email, // Will be empty if 'email' scope was not granted.
 		AvatarUrl: getDiscordAvatarURL(discordUser.ID, discordUser.Avatar),
 		// Discord doesn't provide separate first/last names.
+		// Discord returns verified alongside email for the 'email' scope.
+		EmailVerified: emailVerifiedStatus(discordUser.Email, discordUser.Verified),
+	}
+	if o.config.UseDiscordIdAsEmail {
+		// The synthetic address isn't one Discord verifies.
+		user.Email = discordUser.ID + "@discordid.com"
+		user.EmailVerified = nil
 	}
 
 	logger.Info("Discord login successful", zap.String("discord_id", discordUser.ID), zap.String("discord_username", user.Username), zap.String("email", user.Email))

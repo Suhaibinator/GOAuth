@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -129,6 +130,21 @@ func selectPrimaryGitHubEmail(emails []GitHubUserEmail) string {
 	return firstEmail // Return the first email if no better option is found.
 }
 
+// gitHubEmailVerified returns GitHub's verification status for email from the
+// `/user/emails` list, or nil when the address is empty or not listed.
+func gitHubEmailVerified(emails []GitHubUserEmail, email string) *bool {
+	if email == "" {
+		return nil
+	}
+	for _, e := range emails {
+		if strings.EqualFold(e.Email, email) {
+			verified := e.Verified
+			return &verified
+		}
+	}
+	return nil
+}
+
 // gitHubLoginWithCode handles the final step of the GitHub OAuth flow.
 // It exchanges the authorization code for an access token, fetches the user's profile
 // information and email addresses from the GitHub API, and maps the data to the
@@ -171,15 +187,14 @@ func (o *OAuthHandler) gitHubLoginWithCode(ctx context.Context, code, redirectUR
 		return nil, ErrFailedToGetUserInfo
 	}
 
-	// If email is not public in the main user info, try fetching from /user/emails
-	if githubUser.Email == "" {
-		emails, emailErr := fetchGitHubUserEmails(ctx, client)
-		if emailErr == nil && len(emails) > 0 {
-			githubUser.Email = selectPrimaryGitHubEmail(emails)
-		} else if emailErr != nil {
-			// Log the error but don't fail the whole process if email fetch fails
-			logger.Warn("Failed to fetch GitHub user emails", zap.Error(emailErr))
-		}
+	// Fetch /user/emails to pick an email when none is public and to look up the
+	// verification status of whichever email is returned.
+	emails, emailErr := fetchGitHubUserEmails(ctx, client)
+	if emailErr != nil {
+		// Log the error but don't fail the whole process if email fetch fails
+		logger.Warn("Failed to fetch GitHub user emails", zap.Error(emailErr))
+	} else if githubUser.Email == "" {
+		githubUser.Email = selectPrimaryGitHubEmail(emails)
 	}
 
 	// Create a standardized User from the GitHub user info
@@ -194,6 +209,7 @@ func (o *OAuthHandler) gitHubLoginWithCode(ctx context.Context, code, redirectUR
 		Email:     githubUser.Email, // Email might be empty if none is public/verified or scope wasn't granted.
 		AvatarUrl: githubUser.AvatarURL,
 		// GitHub API v3 doesn't provide separate first/last names directly in /user.
+		EmailVerified: gitHubEmailVerified(emails, githubUser.Email),
 	}
 
 	logger.Info("GitHub login successful", zap.String("github_login", githubUser.Login), zap.String("email", user.Email))

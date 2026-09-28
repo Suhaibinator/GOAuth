@@ -132,7 +132,8 @@ func (o *OAuthHandler) facebookLoginWithCode(ctx context.Context, code, redirect
 		avatarURL = facebookUser.Picture.Data.URL
 	}
 
-	// Create the standardized User struct.
+	// Create the standardized User struct. The Graph API does not report
+	// whether the email is verified, so EmailVerified stays nil.
 	user := &User{
 		Username:  facebookUser.Name, // Use the full name as the username.
 		Email:     facebookUser.Email,
